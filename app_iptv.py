@@ -81,7 +81,7 @@ st.markdown("""
     /* Imagen Ratio 2:3 */
     .vod-img-box {
         width: 100%;
-        padding-top: 120%; 
+        padding-top: 100%; 
         position: relative;
     }
     .vod-img {
