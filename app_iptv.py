@@ -124,10 +124,7 @@ def get_my_ip():
     """Detecta la IP REAL del cliente usando Javascript"""
     try:
         url = 'https://api.ipify.org'
-        # Ejecuta JS en el navegador del usuario para pedir la IP
         ip_js = st_javascript(f"await fetch('{url}').then(r => r.text())")
-        
-        # Validamos que sea una IP real y no un objeto vacío cargando
         if ip_js and isinstance(ip_js, str) and len(ip_js) > 6: 
             return ip_js
         return None
@@ -143,49 +140,40 @@ if 'iptv_data' not in st.session_state: st.session_state.iptv_data = None
 if 'mode' not in st.session_state: st.session_state.mode = 'live'
 
 # ==============================================================================
-#  PANTALLA 1: LOGIN (Validación REAL de IP)
+#  PANTALLA 1: LOGIN (CORREGIDO)
 # ==============================================================================
 if not st.session_state.logged_in:
     st.markdown("<br><br>", unsafe_allow_html=True)
     c1, c2, c3 = st.columns([1, 2, 1])
     with c2:
+        # --- 1. DETECCIÓN DE IP (FUERA DEL FORMULARIO) ---
+        mi_ip = get_my_ip()
+        
+        if mi_ip is None:
+            # Mostramos un mensaje temporal MIENTRAS detecta la IP
+            st.warning("⏳ Detectando ubicación... (Espera un segundo)")
+            time.sleep(1) 
+            st.rerun() # Recargamos para intentar obtener la IP de nuevo
+        
+        # --- 2. EL FORMULARIO (Solo se muestra cuando ya hay IP) ---
         with st.form("login_form"):
             st.markdown("<h2 style='text-align:center; color:white;'>🔐 CLIENT ACCESS</h2>", unsafe_allow_html=True)
-            
-            # --- LÓGICA DE ESPERA DE IP ---
-            mi_ip = get_my_ip()
-            
-            if mi_ip is None:
-                st.warning("⏳ Detectando ubicación... (Espera un segundo)")
-                time.sleep(1) # Pequeña pausa
-                st.rerun()    # Recargar hasta tener la IP
-            else:
-                st.info(f"📡 Tu IP detectada: **{mi_ip}**")
-            # ------------------------------
+            st.info(f"📡 Tu IP detectada: **{mi_ip}**")
 
             u = st.text_input("Usuario")
             p = st.text_input("Contraseña", type="password")
             
             if st.form_submit_button("INICIAR SESIÓN"):
-                if not mi_ip:
-                    st.error("⚠️ Aún no se detecta la IP. Intenta de nuevo.")
-                    st.stop()
-
-                # Hasheamos entrada
                 hashed_input = hashlib.sha256(str.encode(p)).hexdigest()
-                
-                # Leemos la BD
                 users_db = get_users_from_cloud()
                 
                 if not users_db:
-                    st.error("⚠️ Error conectando a base de datos. Avisa al administrador.")
+                    st.error("⚠️ Error conectando a base de datos.")
                     st.stop()
 
                 found = False
                 for user in users_db:
-                    # Validar credenciales
                     if str(user['username']) == u and str(user['password']) == hashed_input:
-                        # Validar IP
                         if str(user['allowed_ip']) == mi_ip:
                             st.session_state.logged_in = True
                             st.session_state.user = u
