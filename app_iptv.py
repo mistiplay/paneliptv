@@ -133,35 +133,44 @@ if 'iptv_data' not in st.session_state: st.session_state.iptv_data = None
 if 'mode' not in st.session_state: st.session_state.mode = 'live'
 
 # ==============================================================================
+# ==============================================================================
 #  PANTALLA 1: LOGIN (Valida contra Google Sheets)
 # ==============================================================================
 if not st.session_state.logged_in:
     st.markdown("<br><br>", unsafe_allow_html=True)
     c1, c2, c3 = st.columns([1, 2, 1])
     with c2:
-        with st.form("login_form"):
-            st.markdown("<h2 style='text-align:center; color:white;'>🔐 CLIENT ACCESS</h2>", unsafe_allow_html=True)
+        with st.form("login"):
+            st.markdown("<h2 style='text-align:center'>🔐 CLIENT ACCESS</h2>", unsafe_allow_html=True)
+            
+            # --- AGREGADO: MOSTRAR IP PARA FACILITAR REGISTRO ---
+            mi_ip = get_my_ip()
+            st.info(f"📡 Tu IP Actual es: **{mi_ip}**\n(Asegúrate de que esta IP esté registrada en el Panel Admin)")
+            # ----------------------------------------------------
+
             u = st.text_input("Usuario")
             p = st.text_input("Contraseña", type="password")
             
-            if st.form_submit_button("INICIAR SESIÓN"):
-                current_ip = get_my_ip()
-                # Hasheamos lo que escribió el usuario para comparar
+            if st.form_submit_button("INGRESAR"):
+                # (El resto del código sigue igual...)
+                current_ip = mi_ip # Usamos la variable que ya capturamos
                 hashed_input = hashlib.sha256(str.encode(p)).hexdigest()
                 
                 users_db = get_users_from_cloud()
                 
+                if not users_db:
+                    st.error("⚠️ Error: No se pudo conectar con la base de datos. Revisa los 'Secrets'.")
+                    st.stop()
+
                 found = False
                 for user in users_db:
-                    # Validar credenciales (User + Hash Pass)
                     if str(user['username']) == u and str(user['password']) == hashed_input:
-                        # Validar IP
                         if str(user['allowed_ip']) == current_ip:
                             st.session_state.logged_in = True
                             st.session_state.user = u
                             st.rerun()
                         else:
-                            st.error(f"⛔ IP no autorizada: {current_ip}")
+                            st.error(f"⛔ IP no autorizada. El sistema ve: {current_ip}")
                             found = True
                             break
                         found = True
@@ -169,7 +178,6 @@ if not st.session_state.logged_in:
                 if not found:
                     st.error("❌ Usuario o contraseña incorrectos.")
     st.stop()
-
 # ==============================================================================
 #  PANTALLA 2: CONECTAR URL (Mantenemos la lógica simple)
 # ==============================================================================
@@ -306,3 +314,4 @@ if q:
 
 else:
     st.info("👆 Usa el buscador para encontrar contenido.")
+
