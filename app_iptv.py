@@ -79,7 +79,7 @@ st.markdown("""
     .vod-title { font-size: 13px; font-weight: bold; color: white; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     # AQUI ES DONDE CAMBIAS EL TAMAÑO DE LETRA DE LA CARPETA
     .vod-cat { 
-        font-size: 12px;       /* Ajusta el tamaño aquí */
+        font-size: 10px;       /* Ajusta el tamaño aquí */
         color: #00C6FF;
         white-space: nowrap;      /* <--- OBLIGA a una sola línea */
         overflow: hidden;         /* <--- Corta lo que sobra */
@@ -368,6 +368,7 @@ else:
     
     if len(filtered) > limit:
         st.warning(f"⚠️ Mostrando los primeros {limit} resultados. Usa el buscador para ver más.")
+
 
 
 
