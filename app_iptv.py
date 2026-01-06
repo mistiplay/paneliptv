@@ -87,11 +87,13 @@ st.markdown("""
     margin: 0;             /* Elimina márgenes extraños */
 }
     .vod-img {
-        position: absolute;
-        top: 0; left: 0; bottom: 0; right: 0;
-        width: 100%; height: 100%;
-        object-fit: cover;
-    }
+    position: absolute;
+    top: 0; left: 0; bottom: 0; right: 0;
+    width: 100%; 
+    height: 100%;
+    object-fit: cover;     /* <--- CLAVE: Estira la imagen para llenar el hueco sin deformar */
+    display: block;        /* Evita espacios fantasmas debajo de la imagen */
+}
     /* Info Compacta */
     .vod-info {
         padding: 3px 2px; /* Menos padding para reducir tamaño */
