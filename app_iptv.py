@@ -4,96 +4,71 @@ import hashlib
 import gspread
 import time
 from oauth2client.service_account import ServiceAccountCredentials
-from urllib.parse import urlparse, parse_qs
-from datetime import datetime
 from streamlit_javascript import st_javascript
+from datetime import datetime
 
-# 1. CONFIGURACIÓN DE PÁGINA
+# 1. CONFIGURACIÓN
 st.set_page_config(page_title="IPTV Player Cloud", layout="wide", page_icon="📺")
 
 # 🔴 TU ID DE GOOGLE SHEETS
 SHEET_URL = "https://docs.google.com/spreadsheets/d/1lyj55UiweI75ej3hbPxvsxlqv2iKWEkKTzEmAvoF6lI/edit"
 
-# 2. CSS VISUAL (EL ORIGINAL QUE TE GUSTA)
+# 2. ESTILOS VISUALES (VERSIÓN ORIGINAL GRID/CARPETAS)
 st.markdown("""
     <style>
-    /* Ocultar elementos nativos */
-    #MainMenu, header, footer, .stAppDeployButton {visibility: hidden !important;}
-    
-    /* FONDO DE PANTALLA */
+    #MainMenu, header, footer {visibility: hidden;}
     .stApp {
-        background-color: #111;
-        background-image: radial-gradient(circle at center, #222 0%, #000 100%);
+        background-color: #0e0e0e;
+        background-image: radial-gradient(circle at center, #1a1a1a 0%, #000 100%);
         color: white;
     }
-
-    /* FORMULARIOS */
     div[data-testid="stForm"] {
-        background-color: rgba(15, 15, 15, 0.95);
-        padding: 40px;
+        background-color: rgba(20, 20, 20, 0.95);
+        padding: 30px;
         border-radius: 10px;
         border: 1px solid #333;
-        box-shadow: 0 0 20px rgba(0,198,255,0.1);
     }
-
-    /* INPUTS */
     .stTextInput > div > div > input {
-        background-color: #222; color: white; border: 1px solid #444; border-radius: 4px;
+        background-color: #222; color: white; border: 1px solid #444;
     }
-
-    /* BOTONES */
     .stButton > button {
         width: 100%; background-color: #0069d9; color: white; border: none;
-        font-weight: 600; text-transform: uppercase; height: 45px; transition: all 0.3s;
+        font-weight: 600; text-transform: uppercase; height: 45px;
     }
-    .stButton > button:hover {
-        background-color: #0056b3; box-shadow: 0 0 15px rgba(0, 105, 217, 0.6);
-    }
-
-    /* --- HEADER INTERNO --- */
-    .header-container {
-        background-color: rgba(20, 20, 20, 0.95); padding: 15px 25px;
-        border-radius: 10px; border-bottom: 2px solid #0069d9;
-        display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;
-    }
-    .status-pill {
-        display: flex; align-items: center; gap: 10px; 
-        background-color: #222; padding: 5px 15px; border-radius: 20px; border: 1px solid #444;
-    }
-
-    /* --- GRID VOD --- */
-    .vod-grid {
-        display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
-        gap: 15px; width: 100%; margin-top: 20px;
-    }
+    .stButton > button:hover { background-color: #0056b3; }
+    
+    /* VOD CARD GRID */
     .vod-card {
-        background-color: rgba(30, 30, 30, 0.95); border-radius: 6px; overflow: hidden;
-        border: 1px solid #333; display: flex; flex-direction: column; transition: transform 0.2s;
+        background-color: #1e1e1e; border-radius: 6px; overflow: hidden;
+        margin-bottom: 15px; border: 1px solid #333; position: relative;
     }
-    .vod-card:hover { transform: scale(1.03); border-color: #0069d9; }
-    .vod-img { width: 100%; aspect-ratio: 2/3; object-fit: cover; }
-    .vod-info { padding: 8px; text-align: center; }
-    .vod-title { font-size: 12px; font-weight: bold; color: white; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-    .vod-cat { font-size: 10px; color: #00C6FF; margin-top: 2px;}
-
-    /* --- CANALES --- */
+    .vod-img-box {
+        width: 100%; padding-top: 150%; position: relative;
+    }
+    .vod-img {
+        position: absolute; top: 0; left: 0; bottom: 0; right: 0;
+        width: 100%; height: 100%; object-fit: cover;
+    }
+    .vod-info { padding: 8px; text-align: center; background: rgba(0,0,0,0.8); }
+    .vod-title { font-size: 11px; font-weight: bold; color: white; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .vod-cat { font-size: 9px; color: #00C6FF; margin-top: 2px; }
+    
+    /* CANALES */
     .channel-row {
-        background-color: rgba(30, 30, 30, 0.6); padding: 8px 15px; margin-bottom: 5px; border-radius: 4px;
-        border-left: 3px solid #0069d9; display: flex; align-items: center;
+        background-color: rgba(40, 40, 40, 0.5); padding: 8px 12px; margin-bottom: 5px;
+        border-radius: 4px; border-left: 3px solid #0069d9; display: flex; align-items: center; font-size: 13px;
     }
     </style>
 """, unsafe_allow_html=True)
 
-# 3. CONEXIÓN SEGURA Y UTILIDADES
+# 3. FUNCIONES
 
-@st.cache_data(ttl=60) 
+@st.cache_data(ttl=60)
 def get_users_from_cloud():
-    """Descarga usuarios de Google Sheets"""
     try:
         scope = ['https://spreadsheets.google.com/feeds', 'https://www.googleapis.com/auth/drive']
         creds_dict = dict(st.secrets["gcp_service_account"])
         creds_dict["private_key"] = creds_dict["private_key"].replace("\\n", "\n")
-        
         creds = ServiceAccountCredentials.from_json_keyfile_dict(creds_dict, scope)
         client = gspread.authorize(creds)
         sheet = client.open_by_url(SHEET_URL).sheet1
@@ -101,57 +76,66 @@ def get_users_from_cloud():
     except: return []
 
 def proxy_img(url):
-    if not url or not url.startswith('http'): return "https://via.placeholder.com/150x225?text=No+Img"
+    if not url or not url.startswith('http'): return "https://via.placeholder.com/200x300?text=No+Img"
     return f"https://wsrv.nl/?url={url}&w=150&h=225&fit=cover&output=webp"
 
-# --- ESTADO DE SESIÓN ---
+# --- ESTADO ---
 if 'logged_in' not in st.session_state: st.session_state.logged_in = False
 if 'iptv_data' not in st.session_state: st.session_state.iptv_data = None
-if 'menu_actual' not in st.session_state: st.session_state.menu_actual = "📡 Canales"
-# Variable para guardar la IP y evitar recargas infinitas
-if 'user_ip' not in st.session_state: st.session_state.user_ip = None
+if 'mode' not in st.session_state: st.session_state.mode = 'live'
+if 'data_live' not in st.session_state: st.session_state.data_live = None
+if 'data_vod' not in st.session_state: st.session_state.data_vod = None
+if 'data_series' not in st.session_state: st.session_state.data_series = None
 
 # ==============================================================================
-#  PANTALLA A: LOGIN (SOLUCIÓN DOBLE CLIC)
+#  PANTALLA A: LOGIN (NON-BLOCKING)
 # ==============================================================================
 if not st.session_state.logged_in:
     st.markdown("<br><br>", unsafe_allow_html=True)
     c1, c2, c3 = st.columns([1, 2, 1])
     with c2:
-        # 1. DETECCIÓN DE IP (ANTES DE MOSTRAR NADA)
-        if st.session_state.user_ip is None:
-            st.warning("⏳ Conectando de forma segura...")
-            try:
-                url_ip = 'https://api.ipify.org'
-                ip_js = st_javascript(f"await fetch('{url_ip}').then(r => r.text())")
-                if ip_js and isinstance(ip_js, str) and len(ip_js) > 6:
-                    st.session_state.user_ip = ip_js
-                    st.rerun() # Recargamos UNA vez para guardar la IP
-            except: pass
-            st.stop() # Detenemos ejecución hasta tener IP
-        
-        # 2. SI YA TENEMOS IP, MOSTRAMOS LOGIN (ESTABLE)
-        with st.form("security_login"):
-            st.markdown("<h2 style='text-align:center; color:white;'>🔐 ACCESO SEGURO</h2>", unsafe_allow_html=True)
-            st.caption(f"IP Verificada: {st.session_state.user_ip}")
+        # 1. EJECUTAR JS PARA IP (SIN BLOQUEAR UI)
+        try:
+            url_ip = 'https://api.ipify.org'
+            ip_js = st_javascript(f"await fetch('{url_ip}').then(r => r.text())")
+        except: ip_js = None
+
+        # 2. MOSTRAR LOGIN DIRECTAMENTE
+        with st.form("login_form"):
+            st.markdown("<h2 style='text-align:center; color:white;'>🔐 CLIENT ACCESS</h2>", unsafe_allow_html=True)
             
-            user = st.text_input("Usuario")
-            passw = st.text_input("Contraseña", type="password")
-            btn = st.form_submit_button("INGRESAR")
+            # Mostrar estado de IP visualmente
+            if ip_js and len(str(ip_js)) > 6:
+                st.success(f"📡 IP Verificada: {ip_js}")
+            else:
+                st.warning("⏳ Detectando IP... (Puedes escribir tus datos mientras)")
+
+            u = st.text_input("Usuario")
+            p = st.text_input("Contraseña", type="password")
+            btn = st.form_submit_button("INICIAR SESIÓN")
             
             if btn:
-                hashed_pw = hashlib.sha256(str.encode(passw)).hexdigest()
+                # Validar IP al momento de dar click
+                if not ip_js or len(str(ip_js)) < 6:
+                    st.error("⚠️ Aún no se detecta tu IP. Espera unos segundos y vuelve a dar click.")
+                    st.stop()
+                
+                hashed_pw = hashlib.sha256(str.encode(p)).hexdigest()
                 users_db = get_users_from_cloud()
                 
+                if not users_db:
+                    st.error("Error de conexión con la base de datos.")
+                    st.stop()
+
                 found = False
-                for u_db in users_db:
-                    if str(u_db['username']) == user and str(u_db['password']) == hashed_pw:
-                        if str(u_db['allowed_ip']) == st.session_state.user_ip:
+                for user in users_db:
+                    if str(user['username']) == u and str(user['password']) == hashed_pw:
+                        if str(user['allowed_ip']) == ip_js:
                             st.session_state.logged_in = True
-                            st.session_state.admin_user = user
+                            st.session_state.admin_user = u
                             st.rerun()
                         else:
-                            st.error(f"⛔ IP NO AUTORIZADA ({st.session_state.user_ip})")
+                            st.error(f"⛔ IP NO AUTORIZADA ({ip_js})")
                             found = True; break
                         found = True
                 
@@ -159,184 +143,168 @@ if not st.session_state.logged_in:
     st.stop()
 
 # ==============================================================================
-#  PANTALLA B: CONEXIÓN IPTV (URL SIMPLE)
+#  PANTALLA B: CONEXIÓN (CON ANTI-BLOQUEO)
 # ==============================================================================
 if st.session_state.iptv_data is None:
     st.markdown("<br>", unsafe_allow_html=True)
     c_izq, c_cen, c_der = st.columns([1, 2, 1])
     with c_cen:
         with st.form("iptv_connect"):
-            st.markdown(f"<p style='text-align:center; color:#888;'>Bienvenido, {st.session_state.admin_user}</p>", unsafe_allow_html=True)
+            st.markdown(f"<p style='text-align:center; color:#888;'>Usuario: {st.session_state.admin_user}</p>", unsafe_allow_html=True)
             st.markdown("<h3 style='text-align:center; color:white;'>🔗 CONECTAR LISTA</h3>", unsafe_allow_html=True)
             
-            url_input = st.text_input("URL / Enlace M3U", placeholder="http://dominio.com:8080/get.php?username=...").strip()
+            url_input = st.text_input("Enlace M3U / URL").strip()
             submitted = st.form_submit_button("CONECTAR")
             
             if submitted:
                 if "http" in url_input:
-                    with st.spinner("⏳ Conectando..."):
+                    with st.spinner("⏳ Conectando al servidor..."):
                         try:
-                            # 1. LÓGICA SIMPLE (Reemplazo de texto como en PC)
+                            # 1. REEMPLAZO SIMPLE (Igual que en PC)
                             final_api = url_input.replace("/get.php", "/player_api.php").replace("/xmltv.php", "/player_api.php")
                             
-                            # 2. Header de Navegador (Evita bloqueos 403)
-                            headers = {"User-Agent": "Mozilla/5.0"}
+                            # 2. MÁSCARA DE NAVEGADOR (CRUCIAL PARA TVDIRECT.PRO)
+                            headers = {
+                                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
+                            }
                             
-                            # 3. Petición
-                            res = requests.get(final_api, headers=headers, timeout=20)
+                            # 3. CONEXIÓN
+                            res = requests.get(final_api, headers=headers, timeout=25)
                             
                             if res.status_code == 200:
                                 try:
                                     data = res.json()
                                     if 'user_info' in data:
-                                        # Guardar en sesión
                                         st.session_state.iptv_data = {
                                             "api": final_api,
                                             "info": data['user_info']
                                         }
-                                        # Inicializar listas vacías
-                                        st.session_state.live_list = []
-                                        st.session_state.vod_list = []
-                                        st.session_state.series_list = []
+                                        # Resetear caches
+                                        st.session_state.data_live = None
+                                        st.session_state.data_vod = None
+                                        st.session_state.data_series = None
                                         st.rerun()
-                                    else: st.error("❌ Login fallido (Revisa usuario/pass en la URL).")
-                                except: st.error("❌ Error: El servidor no devolvió datos válidos.")
-                            else: st.error(f"❌ Error HTTP {res.status_code}")
-                        except Exception as e: st.error(f"❌ Error conexión: {e}")
+                                    else:
+                                        st.error("❌ Login fallido: Revisa usuario/contraseña en el enlace.")
+                                except:
+                                    # Si no es JSON, mostrar los primeros caracteres para entender qué pasó
+                                    st.error(f"❌ Error: El servidor envió algo que no es JSON. (Respuesta: {res.text[:50]}...)")
+                            else:
+                                st.error(f"❌ Error HTTP {res.status_code}")
+                        except Exception as e: st.error(f"❌ Error técnico: {e}")
                 else: st.warning("URL inválida.")
     st.stop()
 
 # ==============================================================================
-#  PANTALLA C: DASHBOARD (TU CÓDIGO VISUAL RESTAURADO)
+#  PANTALLA C: DASHBOARD (VISUAL ORIGINAL)
 # ==============================================================================
 info = st.session_state.iptv_data['info']
 api = st.session_state.iptv_data['api']
 
-# --- HEADER ---
+# HEADER
 exp = "Indefinido"
 if info.get('exp_date') and str(info.get('exp_date')) != 'null':
     exp = datetime.fromtimestamp(int(info['exp_date'])).strftime('%d/%m/%Y')
 
 st.markdown(f"""
-<div class="header-container">
-    <div style="font-weight:bold; font-size:20px; color:white;">🔍 CONTENT VIEWER</div>
-    <div class="status-pill">
-        <div style="text-align:right; line-height:1.2;">
-            <div style="color:#aaa; font-size:10px;">CLIENTE</div>
-            <div style="color:white; font-size:14px; font-weight:bold;">{info.get('username')}</div>
-        </div>
-        <div style="border-left:1px solid #444; padding-left:10px; line-height:1.2;">
-            <div style="color:#aaa; font-size:10px;">VENCE</div>
-            <div style="color:#00C6FF; font-size:12px;">{exp}</div>
-        </div>
-        <div style="border-left:1px solid #444; padding-left:10px; line-height:1.2;">
-            <div style="color:#aaa; font-size:10px;">CONEXIONES</div>
-            <div style="color:orange; font-size:12px;">{info.get('active_cons')} / {info.get('max_connections')}</div>
-        </div>
+<div style="background: rgba(20,20,20,0.95); padding:10px 20px; border-radius:10px; display:flex; justify-content:space-between; align-items:center; border-bottom:2px solid #0069d9; margin-bottom:15px;">
+    <span style="font-weight:bold; color:white; font-size:18px;">IPTV PLAYER</span>
+    <div style="font-size:11px; color:#ccc; text-align:right;">
+        <div>USER: <b style="color:white">{info.get('username')}</b></div>
+        <div>EXP: <b style="color:#00C6FF">{exp}</b> | STS: <b style="color:#00FF00">{info.get('status')}</b></div>
     </div>
 </div>
 """, unsafe_allow_html=True)
 
-# --- MENÚ ---
+# MENÚ
 c1, c2, c3, c4 = st.columns(4)
-if c1.button("📡 TV EN VIVO"): st.session_state.menu_actual = "📡 Canales"; st.rerun()
-if c2.button("🎥 PELÍCULAS"): st.session_state.menu_actual = "🎥 Películas"; st.rerun()
-if c3.button("📺 SERIES"): st.session_state.menu_actual = "📺 Series"; st.rerun()
+if c1.button("📡 TV EN VIVO"): st.session_state.mode = 'live'; st.rerun()
+if c2.button("🎥 PELÍCULAS"): st.session_state.mode = 'vod'; st.rerun()
+if c3.button("📺 SERIES"): st.session_state.mode = 'series'; st.rerun()
 if c4.button("🔌 SALIR"): st.session_state.iptv_data = None; st.rerun()
 
-# --- BUSCADOR ---
-st.markdown("---")
-query = st.text_input(f"🔎 Buscar en {st.session_state.menu_actual}...", placeholder="Escribe para filtrar resultados...").lower()
-
-# --- LÓGICA DE CARGA Y VISUALIZACIÓN ---
-headers = {"User-Agent": "Mozilla/5.0"}
-
-# 1. CANALES
-if st.session_state.menu_actual == "📡 Canales":
-    if not st.session_state.live_list:
-        with st.spinner("Descargando canales..."):
-            try:
-                st.session_state.live_list = requests.get(f"{api}&action=get_live_streams", headers=headers, timeout=20).json()
-                cats = requests.get(f"{api}&action=get_live_categories", headers=headers, timeout=15).json()
-                st.session_state.live_cats = {c['category_id']: c['category_name'] for c in cats}
-            except: pass
-
-    if query:
-        items = [x for x in st.session_state.live_list if query in str(x.get('name')).lower()]
-        if not items: st.warning("No encontrado.")
+# FUNCION DE CARGA
+def fetch_data(act_content, act_cats):
+    try:
+        # USAR MISMOS HEADERS ANTI-BLOQUEO
+        headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"}
         
-        html = ""
-        for i in items[:100]:
-            cat_name = st.session_state.live_cats.get(i.get('category_id'), 'General')
-            html += f"""
-            <div class="channel-row">
-                <span style="color:#00C6FF; font-weight:bold; width:50px;">{i.get('num', '0')}</span>
-                <div>
-                    <div style="font-size:9px; color:#888; text-transform:uppercase;">{cat_name}</div>
-                    <div style="color:#eee; font-weight:500;">{i.get('name')}</div>
+        u_cont = f"{api}&action={act_content}"
+        u_cats = f"{api}&action={act_cats}"
+        
+        d = requests.get(u_cont, headers=headers, timeout=30).json()
+        c = requests.get(u_cats, headers=headers, timeout=20).json()
+        
+        cmap = {str(x['category_id']): x['category_name'] for x in c}
+        return d, cmap
+    except: return [], {}
+
+mode = st.session_state.mode
+
+# LOGICA DE CARGA LAZY
+if mode == 'live' and st.session_state.data_live is None:
+    with st.spinner("Cargando Canales..."):
+        st.session_state.data_live = fetch_data('get_live_streams', 'get_live_categories')
+elif mode == 'vod' and st.session_state.data_vod is None:
+    with st.spinner("Cargando Películas..."):
+        st.session_state.data_vod = fetch_data('get_vod_streams', 'get_vod_categories')
+elif mode == 'series' and st.session_state.data_series is None:
+    with st.spinner("Cargando Series..."):
+        st.session_state.data_series = fetch_data('get_series', 'get_series_categories')
+
+# SELECCION
+data, cat_map = [], {}
+if mode == 'live': data, cat_map = st.session_state.data_live or ([], {})
+elif mode == 'vod': data, cat_map = st.session_state.data_vod or ([], {})
+elif mode == 'series': data, cat_map = st.session_state.data_series or ([], {})
+
+# FILTROS
+st.markdown("---")
+cf, cb = st.columns([1, 2])
+with cf:
+    all_cats = ["Todas"] + sorted(list(cat_map.values()))
+    sel_cat = st.selectbox("📂 Filtrar por Carpeta", all_cats)
+with cb:
+    query = st.text_input("🔍 Buscar Título").lower()
+
+# APLICAR
+filtered = data
+if sel_cat != "Todas":
+    t_ids = [k for k,v in cat_map.items() if v == sel_cat]
+    if t_ids: filtered = [x for x in filtered if str(x.get('category_id')) in t_ids]
+if query:
+    filtered = [x for x in filtered if query in str(x.get('name')).lower()]
+
+# RENDER
+st.info(f"Resultados: {len(filtered)}")
+
+if mode == 'live':
+    html = ""
+    for item in filtered[:100]:
+        cname = cat_map.get(str(item.get('category_id')), "Gen")
+        html += f"""
+        <div class="channel-row">
+            <div style="width:50px; color:#00C6FF; font-weight:bold;">{item.get('num', '#')}</div>
+            <div style="flex-grow:1;">
+                <div style="font-size:9px; color:#888;">{cname}</div>
+                <div style="color:white; font-weight:500;">{item.get('name')}</div>
+            </div>
+        </div>"""
+    st.markdown(html, unsafe_allow_html=True)
+else:
+    limit = 60
+    view = filtered[:limit]
+    cols = st.columns(6)
+    for i, item in enumerate(view):
+        with cols[i % 6]:
+            img = proxy_img(item.get('stream_icon') or item.get('cover'))
+            cat = cat_map.get(str(item.get('category_id')), "VOD")
+            st.markdown(f"""
+            <div class="vod-card">
+                <div class="vod-img-box"><img src="{img}" class="vod-img" loading="lazy"></div>
+                <div class="vod-info">
+                    <div class="vod-title" title="{item.get('name')}">{item.get('name')}</div>
+                    <div class="vod-cat">📂 {cat}</div>
                 </div>
-            </div>"""
-        st.markdown(html, unsafe_allow_html=True)
-    else: st.info("👆 Usa el buscador.")
-
-# 2. PELÍCULAS (CON CATEGORÍAS)
-elif st.session_state.menu_actual == "🎥 Películas":
-    if not st.session_state.vod_list:
-        with st.spinner("Descargando películas..."):
-            try:
-                st.session_state.vod_list = requests.get(f"{api}&action=get_vod_streams", headers=headers, timeout=35).json()
-                cats = requests.get(f"{api}&action=get_vod_categories", headers=headers, timeout=15).json()
-                st.session_state.vod_cats = {c['category_id']: c['category_name'] for c in cats}
-            except: pass
-
-    if query:
-        items = [x for x in st.session_state.vod_list if query in str(x.get('name')).lower()]
-        if not items: st.warning("No encontrado.")
-        else:
-            st.success(f"Encontrados: {len(items)}")
-            html = '<div class="vod-grid">'
-            for item in items[:60]:
-                img = proxy_img(item.get('stream_icon'))
-                cat = st.session_state.vod_cats.get(item.get('category_id'), 'VOD')
-                html += f"""
-                <div class="vod-card">
-                    <img src="{img}" class="vod-img" loading="lazy">
-                    <div class="vod-info">
-                        <div class="vod-title" title="{item.get('name')}">{item.get('name')}</div>
-                        <div class="vod-cat">📂 {cat}</div>
-                    </div>
-                </div>"""
-            html += '</div>'
-            st.markdown(html, unsafe_allow_html=True)
-    else: st.info("👆 Escribe el nombre de la película.")
-
-# 3. SERIES (CON CATEGORÍAS)
-elif st.session_state.menu_actual == "📺 Series":
-    if not st.session_state.series_list:
-        with st.spinner("Descargando series..."):
-            try:
-                st.session_state.series_list = requests.get(f"{api}&action=get_series", headers=headers, timeout=35).json()
-                cats = requests.get(f"{api}&action=get_series_categories", headers=headers, timeout=15).json()
-                st.session_state.series_cats = {c['category_id']: c['category_name'] for c in cats}
-            except: pass
-
-    if query:
-        items = [x for x in st.session_state.series_list if query in str(x.get('name')).lower()]
-        if not items: st.warning("No encontrado.")
-        else:
-            st.success(f"Encontrados: {len(items)}")
-            html = '<div class="vod-grid">'
-            for item in items[:60]:
-                img = proxy_img(item.get('cover'))
-                cat = st.session_state.series_cats.get(item.get('category_id'), 'Series')
-                html += f"""
-                <div class="vod-card">
-                    <img src="{img}" class="vod-img" loading="lazy">
-                    <div class="vod-info">
-                        <div class="vod-title" title="{item.get('name')}">{item.get('name')}</div>
-                        <div class="vod-cat">📂 {cat}</div>
-                    </div>
-                </div>"""
-            html += '</div>'
-            st.markdown(html, unsafe_allow_html=True)
-    else: st.info("👆 Escribe el nombre de la serie.")
+            </div>""", unsafe_allow_html=True)
+    if len(filtered) > limit: st.warning(f"Mostrando primeros {limit}. Usa el buscador.")
