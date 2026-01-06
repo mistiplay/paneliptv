@@ -9,7 +9,7 @@ import time
 st.set_page_config(page_title="☁️ Admin Panel", page_icon="⚙️", layout="centered")
 
 # 🔴 PEGA TU ENLACE DE GOOGLE SHEETS AQUÍ
-SHEET_URL = "https://docs.google.com/spreadsheets/d/TU_ID_DE_HOJA_AQUI/edit"
+SHEET_URL = "https://docs.google.com/spreadsheets/d/1lyj55UiweI75ej3hbPxvsxlqv2iKWEkKTzEmAvoF6lI/edit"
 
 # --- CONEXIÓN SEGURA A LA NUBE ---
 def connect_db():
@@ -49,7 +49,7 @@ def main():
         pwd = st.text_input("🔒 Contraseña Maestra", type="password")
         if st.button("Entrar"):
             # CAMBIA "admin123" POR TU CLAVE SEGURA
-            if pwd == "admin123": 
+            if pwd == "franchesca92": 
                 st.session_state.admin_ok = True
                 st.rerun()
             else: st.error("Acceso denegado")
@@ -123,4 +123,5 @@ def main():
                     st.warning("Completa usuario, contraseña e IP.")
 
 if __name__ == '__main__':
+
     main()
