@@ -16,7 +16,7 @@ SHEET_URL = "https://docs.google.com/spreadsheets/d/1lyj55UiweI75ej3hbPxvsxlqv2i
 
 # --- INICIALIZACIÓN DE VARIABLES (ESTO EVITA EL ERROR ROJO) ---
 if 'logged_in' not in st.session_state: st.session_state.logged_in = False
-if 'user' not in st.session_state: st.session_state.user = "" # Variable crítica inicializada
+if 'user' not in st.session_state: st.session_state.user = "" 
 if 'iptv_data' not in st.session_state: st.session_state.iptv_data = None
 if 'mode' not in st.session_state: st.session_state.mode = 'live'
 if 'user_ip_cached' not in st.session_state: st.session_state.user_ip_cached = None
@@ -25,7 +25,7 @@ if 'data_live' not in st.session_state: st.session_state.data_live = None
 if 'data_vod' not in st.session_state: st.session_state.data_vod = None
 if 'data_series' not in st.session_state: st.session_state.data_series = None
 
-# 2. ESTILOS VISUALES (AJUSTADOS A TUS PETICIONES)
+# 2. ESTILOS VISUALES (AJUSTADOS - RESPONSIVE MEJORADO)
 st.markdown("""
     <style>
     /* Ocultar elementos nativos */
@@ -61,12 +61,19 @@ st.markdown("""
         background-color: #0056b3; box-shadow: 0 0 15px rgba(0, 105, 217, 0.6);
     }
 
-    /* --- TARJETAS VOD (COMPACTAS Y TEXTO GRANDE) --- */
+    /* --- GRID CONTAINER (NUEVO) --- */
+    .vod-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); /* Desktop: Tarjetas de 140px min */
+        gap: 15px;
+        padding: 10px 0;
+    }
+
+    /* --- TARJETAS VOD --- */
     .vod-card {
         background-color: #151515;
         border-radius: 6px;
         overflow: hidden;
-        margin-bottom: 15px;
         border: 1px solid #333;
         transition: transform 0.2s;
         position: relative;
@@ -92,26 +99,37 @@ st.markdown("""
     }
     /* Info Compacta */
     .vod-info {
-        padding: 6px 4px; /* Menos padding para reducir tamaño */
+        padding: 6px 4px;
         text-align: center;
         background: #1a1a1a;
         border-top: 1px solid #222;
     }
     .vod-title {
-        font-size: 13px; /* Más grande */
+        font-size: 13px;
         font-weight: bold; 
         color: white;
         white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
         margin-bottom: 2px;
     }
     .vod-cat {
-        font-size: 11px; /* Más grande y visible */
+        font-size: 11px;
         color: #00C6FF; 
         font-weight: 500;
         white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
     }
 
-    /* --- LISTA CANALES (TEXTO GRANDE) --- */
+    /* --- AJUSTES MOVIL (SOLO AQUI CAMBIA EL TAMAÑO) --- */
+    @media (max-width: 768px) {
+        .vod-grid {
+            grid-template-columns: repeat(3, 1fr) !important; /* FUERZA 3 COLUMNAS EN MOVIL */
+            gap: 6px;
+        }
+        .vod-title { font-size: 10px; }
+        .vod-cat { font-size: 8px; }
+        .vod-info { padding: 4px 2px; }
+    }
+
+    /* --- LISTA CANALES --- */
     .channel-row {
         background-color: rgba(40, 40, 40, 0.6);
         padding: 10px 15px;
@@ -127,7 +145,6 @@ st.markdown("""
 
 @st.cache_data(ttl=60) 
 def get_users_from_cloud():
-    """Descarga usuarios de Google Sheets"""
     try:
         scope = ['https://spreadsheets.google.com/feeds', 'https://www.googleapis.com/auth/drive']
         creds_dict = dict(st.secrets["gcp_service_account"])
@@ -140,7 +157,6 @@ def get_users_from_cloud():
     except: return []
 
 def get_my_ip():
-    """Detecta IP Real via JS"""
     try:
         url = 'https://api.ipify.org'
         ip_js = st_javascript(f"await fetch('{url}').then(r => r.text())")
@@ -154,13 +170,12 @@ def proxy_img(url):
     return f"https://wsrv.nl/?url={url}&w=200&h=300&fit=cover&output=webp"
 
 # ==============================================================================
-#  PANTALLA 1: LOGIN (ESTABILIZADO)
+#  PANTALLA 1: LOGIN
 # ==============================================================================
 if not st.session_state.logged_in:
     st.markdown("<br><br>", unsafe_allow_html=True)
     c1, c2, c3 = st.columns([1, 2, 1])
     with c2:
-        # Detectar IP sin bloquear
         if not st.session_state.user_ip_cached:
             ip = get_my_ip()
             if ip: 
@@ -196,7 +211,7 @@ if not st.session_state.logged_in:
                     if str(user['username']) == u and str(user['password']) == hashed_input:
                         if str(user['allowed_ip']) == st.session_state.user_ip_cached:
                             st.session_state.logged_in = True
-                            st.session_state.user = u # AQUÍ GUARDAMOS EL USUARIO CORRECTAMENTE
+                            st.session_state.user = u
                             st.rerun()
                         else:
                             st.error(f"⛔ IP no autorizada ({st.session_state.user_ip_cached})")
@@ -209,13 +224,12 @@ if not st.session_state.logged_in:
     st.stop()
 
 # ==============================================================================
-#  PANTALLA 2: CONECTAR URL (SIN ERRORES JSON)
+#  PANTALLA 2: CONECTAR URL
 # ==============================================================================
 if st.session_state.iptv_data is None:
     st.markdown("<br>", unsafe_allow_html=True)
     c1, c2, c3 = st.columns([1, 2, 1])
     with c2:
-        # AQUÍ USAMOS LA VARIABLE YA INICIALIZADA, NO DARÁ ERROR
         st.markdown(f"<p style='text-align:center; color:#aaa'>Usuario: <b style='color:white'>{st.session_state.user}</b></p>", unsafe_allow_html=True)
         
         with st.form("connect_iptv"):
@@ -226,12 +240,10 @@ if st.session_state.iptv_data is None:
                 if "http" in url_input:
                     with st.spinner("⏳ Conectando..."):
                         try:
-                            # 1. Limpieza SIMPLE (Igual que en versión PC)
                             final_api = url_input.strip()
                             final_api = final_api.replace("/get.php", "/player_api.php")
                             final_api = final_api.replace("/xmltv.php", "/player_api.php")
                             
-                            # 2. Petición con User-Agent (Anti-bloqueo)
                             headers = {"User-Agent": "Mozilla/5.0"}
                             res = requests.get(final_api, headers=headers, timeout=25)
                             
@@ -243,7 +255,6 @@ if st.session_state.iptv_data is None:
                                             "api": final_api, 
                                             "info": data['user_info']
                                         }
-                                        # Resetear caches
                                         st.session_state.data_live = None
                                         st.session_state.data_vod = None
                                         st.session_state.data_series = None
@@ -261,12 +272,12 @@ if st.session_state.iptv_data is None:
     st.stop()
 
 # ==============================================================================
-#  PANTALLA 3: DASHBOARD VISUAL (DISEÑO AJUSTADO)
+#  PANTALLA 3: DASHBOARD
 # ==============================================================================
 info = st.session_state.iptv_data['info']
 api = st.session_state.iptv_data['api']
 
-# --- HEADER (TITULO ACTUALIZADO) ---
+# --- HEADER ---
 exp = "Indefinido"
 if info.get('exp_date') and str(info.get('exp_date')) != 'null':
     try:
@@ -309,7 +320,6 @@ def fetch_data_and_cats(action_content, action_cats):
         return data, cat_map
     except: return [], {}
 
-# Carga Lazy
 mode = st.session_state.mode
 if mode == 'live' and st.session_state.data_live is None:
     with st.spinner("Cargando Canales..."):
@@ -323,7 +333,6 @@ elif mode == 'series' and st.session_state.data_series is None:
     with st.spinner("Cargando Series..."):
         st.session_state.data_series = fetch_data_and_cats('get_series', 'get_series_categories')
 
-# Selección
 data, cat_map = [], {}
 if mode == 'live': data, cat_map = st.session_state.data_live or ([], {})
 elif mode == 'vod': data, cat_map = st.session_state.data_vod or ([], {})
@@ -340,7 +349,6 @@ with c_filtro:
 with c_busq:
     query = st.text_input("🔍 Buscar Título", placeholder="Escribe para buscar...").lower()
 
-# --- APLICAR FILTROS ---
 filtered = data
 if sel_cat != "Todas":
     target_ids = [k for k, v in cat_map.items() if v == sel_cat]
@@ -354,7 +362,7 @@ if query:
 st.info(f"Mostrando {len(filtered)} resultados")
 
 if mode == 'live':
-    # LISTA PARA CANALES (TEXTO GRANDE)
+    # LISTA PARA CANALES
     html = ""
     for item in filtered[:100]:
         cat_name = cat_map.get(str(item.get('category_id')), "General")
@@ -370,29 +378,36 @@ if mode == 'live':
     st.markdown(html, unsafe_allow_html=True)
 
 else:
-    # GRID PARA VOD (TARJETA AJUSTADA)
+    # GRID MEJORADO CON CSS PURO (Solución Mobile 3 columnas)
     limit = 60
     view_items = filtered[:limit]
     
-    cols = st.columns(6)
+    # Abrimos contenedor grid
+    grid_html = '<div class="vod-grid">'
     
-    for i, item in enumerate(view_items):
-        with cols[i % 6]:
-            img = proxy_img(item.get('stream_icon') or item.get('cover'))
-            title = item.get('name')
-            folder_name = cat_map.get(str(item.get('category_id')), "VOD")
-            
-            st.markdown(f"""
-            <div class="vod-card">
-                <div class="vod-img-box">
-                    <img src="{img}" class="vod-img" loading="lazy">
-                </div>
-                <div class="vod-info">
-                    <div class="vod-title" title="{title}">{title}</div>
-                    <div class="vod-cat">📂 {folder_name}</div>
-                </div>
+    for item in view_items:
+        img = proxy_img(item.get('stream_icon') or item.get('cover'))
+        title = item.get('name')
+        folder_name = cat_map.get(str(item.get('category_id')), "VOD")
+        
+        # Agregamos cada tarjeta al HTML string
+        grid_html += f"""
+        <div class="vod-card">
+            <div class="vod-img-box">
+                <img src="{img}" class="vod-img" loading="lazy">
             </div>
-            """, unsafe_allow_html=True)
+            <div class="vod-info">
+                <div class="vod-title" title="{title}">{title}</div>
+                <div class="vod-cat">📂 {folder_name}</div>
+            </div>
+        </div>
+        """
+    
+    # Cerramos contenedor
+    grid_html += '</div>'
+    
+    # Renderizamos todo el bloque de una vez para que el CSS Grid funcione
+    st.markdown(grid_html, unsafe_allow_html=True)
             
     if len(filtered) > limit:
         st.warning(f"⚠️ Mostrando los primeros {limit} resultados. Usa el buscador para ver más.")
