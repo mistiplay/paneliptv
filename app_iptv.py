@@ -92,7 +92,7 @@ st.markdown("""
     }
     /* Info Compacta */
     .vod-info {
-        padding: 6px 4px; /* Menos padding para reducir tamaño */
+        padding: 3px 2px; /* Menos padding para reducir tamaño */
         text-align: center;
         background: #1a1a1a;
         border-top: 1px solid #222;
@@ -396,6 +396,3 @@ else:
             
     if len(filtered) > limit:
         st.warning(f"⚠️ Mostrando los primeros {limit} resultados. Usa el buscador para ver más.")
-
-
-
