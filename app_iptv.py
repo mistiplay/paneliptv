@@ -2,7 +2,7 @@ import streamlit as st
 import requests
 import hashlib
 import time
-import html  # <--- IMPORTANTE: Agregado para corregir el error de texto plano
+import html  # <--- IMPORTANTE: Esto arregla el error de que salga código escrito en pantalla
 from oauth2client.service_account import ServiceAccountCredentials
 from urllib.parse import urlparse, parse_qs
 from datetime import datetime
@@ -26,7 +26,7 @@ if 'data_live' not in st.session_state: st.session_state.data_live = None
 if 'data_vod' not in st.session_state: st.session_state.data_vod = None
 if 'data_series' not in st.session_state: st.session_state.data_series = None
 
-# 2. ESTILOS VISUALES (SOLO CAMBIOS EN GRID/MOVIL)
+# 2. ESTILOS VISUALES (TAMAÑO REDUCIDO Y CORRECCIONES)
 st.markdown("""
     <style>
     /* Ocultar elementos nativos */
@@ -62,25 +62,25 @@ st.markdown("""
         background-color: #0056b3; box-shadow: 0 0 15px rgba(0, 105, 217, 0.6);
     }
 
-    /* --- GRID SYSTEM (SOLUCIÓN MOVIL 3 COLUMNAS) --- */
+    /* --- GRID SYSTEM (SOLUCIÓN TAMAÑO) --- */
     .vod-container {
         display: grid;
-        /* Desktop: Automático, mínimo 130px de ancho */
-        grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); 
+        /* Desktop: Tarjetas pequeñas de 120px */
+        grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); 
         gap: 10px;
         padding: 10px 0;
     }
 
-    /* --- MOVIL ESPECIFICO --- */
+    /* --- MOVIL ESPECIFICO (3 COLUMNAS) --- */
     @media (max-width: 768px) {
         .vod-container {
             /* FUERZA BRUTA: 3 columnas exactas en móvil */
             grid-template-columns: repeat(3, 1fr) !important; 
-            gap: 5px !important;
+            gap: 6px !important;
         }
-        /* Texto más pequeño en móvil para que quepa */
-        .vod-title { font-size: 9px !important; }
-        .vod-cat { font-size: 7px !important; display: none; } /* Oculto categoria en movil para ahorrar espacio */
+        /* Texto diminuto en móvil para que quepa */
+        .vod-title { font-size: 9px !important; line-height: 1.1; }
+        .vod-cat { display: none; } /* Oculto categoria en movil para ahorrar espacio */
     }
 
     /* --- TARJETAS VOD --- */
@@ -92,7 +92,6 @@ st.markdown("""
         transition: transform 0.2s;
         position: relative;
         box-shadow: 0 2px 5px rgba(0,0,0,0.5);
-        cursor: pointer;
     }
     .vod-card:hover {
         border-color: #00C6FF;
@@ -118,6 +117,10 @@ st.markdown("""
         padding: 5px;
         text-align: center;
         background: #111;
+        height: 40px; /* Altura fija para uniformidad */
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
     }
     .vod-title {
         font-size: 11px;
@@ -384,7 +387,7 @@ if mode == 'live':
     st.markdown(html_block, unsafe_allow_html=True)
 
 else:
-    # --- GRID VOD/SERIES (CORREGIDO PARA EVITAR TEXTO PLANO) ---
+    # --- GRID VOD/SERIES (TAMAÑO PEQUEÑO Y PROTEGIDO CONTRA ERRORES) ---
     limit = 60
     view_items = filtered[:limit]
     
@@ -396,8 +399,8 @@ else:
         img_url = item.get('stream_icon') or item.get('cover')
         img = proxy_img(img_url)
         
-        # 2. LIMPIEZA DE CARACTERES (CRITICO PARA QUE NO FALLE)
-        # Usamos html.escape para que comillas en titulos no rompan el HTML
+        # 2. LIMPIEZA DE CARACTERES (ESTO ARREGLA TU ERROR VISUAL)
+        # Usamos html.escape para que las comillas en titulos NO rompan el HTML
         title_safe = html.escape(item.get('name', 'Sin título'))
         cat_id = str(item.get('category_id'))
         folder_name = html.escape(cat_map.get(cat_id, "VOD"))
