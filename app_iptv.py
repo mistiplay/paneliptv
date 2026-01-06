@@ -63,15 +63,16 @@ st.markdown("""
 
     /* --- TARJETAS VOD (COMPACTAS Y TEXTO GRANDE) --- */
     .vod-card {
-        background-color: #151515;
-        border-radius: 6px;
-        overflow: hidden;
-        margin-bottom: 15px;
-        border: 1px solid #333;
-        transition: transform 0.2s;
-        position: relative;
-        box-shadow: 0 4px 10px rgba(0,0,0,0.3);
-    }
+    background-color: #151515;
+    border-radius: 6px;
+    overflow: hidden;      /* Mantiene la imagen dentro de los bordes redondeados */
+    margin-bottom: 15px;
+    border: 1px solid #333;
+    position: relative;
+    padding: 0 !important; /* <--- IMPORTANTE: Elimina el espacio interno */
+    display: flex;         /* Asegura estructura vertical correcta */
+    flex-direction: column;
+}
     .vod-card:hover {
         transform: scale(1.05);
         border-color: #00C6FF;
@@ -80,10 +81,11 @@ st.markdown("""
     }
     /* Imagen Ratio 2:3 */
    .vod-img-box {
-       width: 100%;
-       padding-top: 150%;  /* CAMBIO: 100% -> 150% para formato póster */
-       position: relative;
-   }
+    width: 100%;           /* Ocupa todo el ancho de la tarjeta */
+    padding-top: 150%;     /* Ratio 2:3 (Altura = 1.5 veces el ancho) */
+    position: relative;    /* Necesario para que la imagen absoluta se pegue aquí */
+    margin: 0;             /* Elimina márgenes extraños */
+}
     .vod-img {
         position: absolute;
         top: 0; left: 0; bottom: 0; right: 0;
