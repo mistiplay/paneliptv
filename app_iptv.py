@@ -11,8 +11,86 @@ import gspread
 # 1. CONFIGURACIÓN DE PÁGINA
 st.set_page_config(page_title="Buscador PRO", layout="wide", page_icon="📺")
 
+# 2. ESTILOS VISUALES
+@st.cache_resource
+def inject_styles():
+    st.markdown("""
+        <style>
+        /* Ocultar elementos nativos */
+        #MainMenu, header, footer {visibility: hidden;}
+
+        /* --- FONDO DE PANTALLA (IMAGEN DEL EJEMPLO) --- */
+        .stApp {
+            background-image: url("https://cdn.maxplayer.tv/demo/background.png");
+            background-size: cover;
+            background-position: center;
+            background-repeat: no-repeat;
+            background-attachment: fixed;
+            color: white;
+        }
+
+        /* FORMULARIOS */
+        div[data-testid="stForm"] {
+            background-color: rgba(20, 20, 20, 0.95);
+            padding: 30px;
+            border-radius: 10px;
+            border: 1px solid #333;
+            box-shadow: 0 0 20px rgba(0, 0, 0, 0.5);
+        }
+
+        /* INPUTS */
+        .stTextInput > div > div > input {
+            background-color: #222; color: white; border: 1px solid #444; border-radius: 4px;
+        }
+
+        /* BOTONES */
+        .stButton > button {
+            width: 100%; background-color: #0d6efd; color: white; border: none;
+            font-weight: 600; text-transform: uppercase; height: 45px; transition: all 0.3s;
+        }
+        .stButton > button:hover {
+            background-color: #0b5ed7; box-shadow: 0 4px 12px rgba(13, 110, 253, 0.4);
+        }
+
+        /* --- ESTILO VOD EXACTO --- */
+        .vod-grid {
+            display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+            gap: 15px; width: 100%; margin-top: 20px;
+        }
+        .vod-card {
+            background-color: rgba(38, 38, 38, 0.95); border-radius: 8px; overflow: hidden;
+            border: 1px solid #333; display: flex; flex-direction: column; transition: transform 0.2s;
+        }
+        .vod-card:hover { transform: scale(1.05); border-color: #00C6FF; z-index: 10; }
+        .vod-img { width: 100%; aspect-ratio: 2/3; object-fit: cover; }
+        .vod-info { padding: 8px; text-align: center; }
+        .vod-title { font-size: 13px; font-weight: bold; color: white; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        
+        .vod-cat { 
+            font-size: 10px !important;
+            color: #00C6FF !important;
+            white-space: nowrap !important;
+            overflow: hidden !important;
+            text-overflow: ellipsis !important;
+        }
+
+        /* --- LISTA CANALES --- */
+        .channel-row {
+            background-color: rgba(30, 30, 30, 0.95);
+            padding: 10px 15px;
+            margin-bottom: 6px;
+            border-radius: 5px;
+            border-left: 4px solid #00C6FF;
+            display: flex; align-items: center;
+        }
+        </style>
+    """, unsafe_allow_html=True)
+
+inject_styles()
+
 # 🔴 TU ID DE GOOGLE SHEETS
 SHEET_URL = "https://docs.google.com/spreadsheets/d/1lyj55UiweI75ej3hbPxvsxlqv2iKWEkKTzEmAvoF6lI/edit"
+
 
 # --- INICIALIZACIÓN DE VARIABLES ---
 if 'logged_in' not in st.session_state: st.session_state.logged_in = False
@@ -25,79 +103,6 @@ if 'data_live' not in st.session_state: st.session_state.data_live = None
 if 'data_vod' not in st.session_state: st.session_state.data_vod = None
 if 'data_series' not in st.session_state: st.session_state.data_series = None
 
-# 2. ESTILOS VISUALES (CON FONDO DE IMAGEN DEL EJEMPLO)
-st.markdown("""
-    <style>
-    /* Ocultar elementos nativos */
-    #MainMenu, header, footer {visibility: hidden;}
-
-    /* --- FONDO DE PANTALLA (IMAGEN DEL EJEMPLO) --- */
-    .stApp {
-        background-image: url("https://cdn.maxplayer.tv/demo/background.png");
-        background-size: cover;
-        background-position: center;
-        background-repeat: no-repeat;
-        background-attachment: fixed;
-        color: white; /* Mantiene el texto blanco por si acaso */
-    }
-
-    /* FORMULARIOS */
-    div[data-testid="stForm"] {
-        background-color: rgba(20, 20, 20, 0.95); /* Fondo oscuro semi-transparente */
-        padding: 30px;
-        border-radius: 10px;
-        border: 1px solid #333;
-        box-shadow: 0 0 20px rgba(0, 0, 0, 0.5); /* Sombra más oscura para resaltar sobre imagen */
-    }
-
-    /* INPUTS */
-    .stTextInput > div > div > input {
-        background-color: #222; color: white; border: 1px solid #444; border-radius: 4px;
-    }
-
-    /* BOTONES */
-    .stButton > button {
-        width: 100%; background-color: #0d6efd; color: white; border: none; /* Color azul del ejemplo */
-        font-weight: 600; text-transform: uppercase; height: 45px; transition: all 0.3s;
-    }
-    .stButton > button:hover {
-        background-color: #0b5ed7; box-shadow: 0 4px 12px rgba(13, 110, 253, 0.4);
-    }
-
-    /* --- ESTILO VOD EXACTO --- */
-    .vod-grid {
-        display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
-        gap: 15px; width: 100%; margin-top: 20px;
-    }
-    .vod-card {
-        background-color: rgba(38, 38, 38, 0.95); border-radius: 8px; overflow: hidden;
-        border: 1px solid #333; display: flex; flex-direction: column; transition: transform 0.2s;
-    }
-    .vod-card:hover { transform: scale(1.05); border-color: #00C6FF; z-index: 10; }
-    .vod-img { width: 100%; aspect-ratio: 2/3; object-fit: cover; }
-    .vod-info { padding: 8px; text-align: center; }
-    .vod-title { font-size: 13px; font-weight: bold; color: white; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-    # AQUI ES DONDE CAMBIAS EL TAMAÑO DE LETRA DE LA CARPETA
-    .vod-cat { 
-        font-size: 10px !important;
-        color: #00C6FF !important;
-        white-space: nowrap !important;
-        overflow: hidden !important;
-        text-overflow: ellipsis !important;
-    }
-
-
-    /* --- LISTA CANALES --- */
-    .channel-row {
-        background-color: rgba(30, 30, 30, 0.95); /* Un poco más oscuro para contraste */
-        padding: 10px 15px;
-        margin-bottom: 6px;
-        border-radius: 5px;
-        border-left: 4px solid #00C6FF; /* Azul cian del ejemplo */
-        display: flex; align-items: center;
-    }
-    </style>
-""", unsafe_allow_html=True)
 
 # 3. FUNCIONES
 
@@ -369,6 +374,7 @@ else:
     
     if len(filtered) > limit:
         st.warning(f"⚠️ Mostrando los primeros {limit} resultados. Usa el buscador para ver más.")
+
 
 
 
