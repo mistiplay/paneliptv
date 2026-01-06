@@ -5,9 +5,8 @@ import gspread
 import time
 import pandas as pd
 from oauth2client.service_account import ServiceAccountCredentials
-from urllib.parse import urlparse, parse_qs
-from datetime import datetime
 from streamlit_javascript import st_javascript
+from datetime import datetime
 
 # 1. CONFIGURACIÓN DE PÁGINA
 st.set_page_config(page_title="IPTV Player Pro", layout="wide", page_icon="📺")
@@ -15,7 +14,7 @@ st.set_page_config(page_title="IPTV Player Pro", layout="wide", page_icon="📺"
 # 🔴 TU ID DE GOOGLE SHEETS
 SHEET_URL = "https://docs.google.com/spreadsheets/d/1lyj55UiweI75ej3hbPxvsxlqv2iKWEkKTzEmAvoF6lI/edit"
 
-# 2. ESTILOS VISUALES (RESTAURADOS: VERSIÓN PC)
+# 2. ESTILOS VISUALES (RESTAURADOS: VERSIÓN PC ORIGINAL)
 st.markdown("""
     <style>
     /* Ocultar elementos nativos */
@@ -30,11 +29,10 @@ st.markdown("""
 
     /* FORMULARIOS */
     div[data-testid="stForm"] {
-        background-color: rgba(30, 30, 30, 0.95);
+        background-color: rgba(20, 20, 20, 0.95);
         padding: 30px;
         border-radius: 10px;
         border: 1px solid #333;
-        box-shadow: 0 0 20px rgba(0, 198, 255, 0.1);
     }
 
     /* INPUTS */
@@ -105,7 +103,7 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-# 3. FUNCIONES DE CONEXIÓN Y UTILIDAD
+# 3. FUNCIONES
 
 @st.cache_data(ttl=60) 
 def get_users_from_cloud():
@@ -132,9 +130,8 @@ def get_my_ip():
     except: return None
 
 def proxy_img(url):
-    """Proxy para imágenes http inseguras"""
+    """Proxy para imágenes"""
     if not url or not url.startswith('http'): return "https://via.placeholder.com/200x300?text=No+Img"
-    # Ajustado a 200x300 para el ratio 2:3 exacto
     return f"https://wsrv.nl/?url={url}&w=200&h=300&fit=cover&output=webp"
 
 # --- ESTADO DE SESIÓN ---
@@ -147,7 +144,7 @@ if 'data_vod' not in st.session_state: st.session_state.data_vod = None
 if 'data_series' not in st.session_state: st.session_state.data_series = None
 
 # ==============================================================================
-#  PANTALLA 1: LOGIN (Con espera de IP)
+#  PANTALLA 1: LOGIN
 # ==============================================================================
 if not st.session_state.logged_in:
     st.markdown("<br><br>", unsafe_allow_html=True)
@@ -155,7 +152,6 @@ if not st.session_state.logged_in:
     with c2:
         mi_ip = get_my_ip()
         
-        # Espera activa si no hay IP
         if mi_ip is None:
             st.warning("⏳ Detectando ubicación... (Espera un segundo)")
             time.sleep(1) 
@@ -194,7 +190,7 @@ if not st.session_state.logged_in:
     st.stop()
 
 # ==============================================================================
-#  PANTALLA 2: CONECTAR URL (FIX DEFINITIVO)
+#  PANTALLA 2: CONECTAR URL (LÓGICA ORIGINAL)
 # ==============================================================================
 if st.session_state.iptv_data is None:
     st.markdown("<br>", unsafe_allow_html=True)
@@ -203,60 +199,41 @@ if st.session_state.iptv_data is None:
         st.markdown(f"<p style='text-align:center; color:#aaa'>Usuario: <b style='color:white'>{st.session_state.user}</b></p>", unsafe_allow_html=True)
         with st.form("connect_iptv"):
             st.markdown("<h3 style='text-align:center'>🔗 CONECTAR PLAYER</h3>", unsafe_allow_html=True)
-            url = st.text_input("Pega tu enlace M3U / URL")
+            url_input = st.text_input("Pega tu enlace M3U / URL")
             
             if st.form_submit_button("CONECTAR"):
-                # Permitimos cualquier URL http/https
-                if "http" in url:
-                    with st.spinner("⏳ Analizando servidor..."):
+                # LÓGICA CLÁSICA DE REEMPLAZO (LA QUE FUNCIONABA EN PC)
+                if "http" in url_input:
+                    with st.spinner("⏳ Conectando..."):
                         try:
-                            # 1. ANALIZAR URL (Sin romperla)
-                            parsed = urlparse(url.strip())
-                            params = parse_qs(parsed.query)
+                            # 1. Limpieza simple de URL
+                            final_api = url_input.strip()
+                            final_api = final_api.replace("/get.php", "/player_api.php")
+                            final_api = final_api.replace("/xmltv.php", "/player_api.php")
                             
-                            # Extraer user/pass si existen
-                            u_iptv = params.get('username', [''])[0]
-                            p_iptv = params.get('password', [''])[0]
-                            
-                            # Construir base limpia
-                            host_base = f"{parsed.scheme}://{parsed.netloc}"
-                            
-                            # Detectar si ya es un link de API o si es get.php
-                            path = parsed.path
-                            if "get.php" in path or "xmltv.php" in path:
-                                path = "/player_api.php"
-                            elif "player_api.php" not in path:
-                                # Si pegaron solo el dominio, intentamos añadir el endpoint
-                                path = "/player_api.php"
-
-                            # URL FINAL PARA CONSULTAR
-                            api_clean = f"{host_base}{path}?username={u_iptv}&password={p_iptv}"
-                            
-                            # 2. PETICIÓN ROBUSTA (User-Agent para evitar bloqueos)
+                            # 2. Petición directa (Simulando navegador para evitar bloqueos)
                             headers = {
                                 "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
                             }
                             
-                            res = requests.get(api_clean, headers=headers, timeout=20)
+                            res = requests.get(final_api, headers=headers, timeout=20)
                             
                             if res.status_code == 200:
                                 try:
                                     data = res.json()
-                                    # Algunos paneles devuelven JSON vacio si el login falla
                                     if 'user_info' in data:
-                                        # ¡CONEXIÓN EXITOSA!
                                         st.session_state.iptv_data = {
-                                            "api": api_clean, 
-                                            "host": host_base, 
+                                            "api": final_api, 
                                             "info": data['user_info']
                                         }
                                         st.rerun()
                                     else:
-                                        st.error("❌ Login fallido en el servidor IPTV (Revisa usuario/contraseña dentro del enlace).")
+                                        st.error("❌ Login fallido: El enlace no contiene información de usuario válida.")
                                 except:
-                                    st.error("❌ El servidor respondió, pero no es formato JSON válido (Posible bloqueo o URL incorrecta).")
+                                    # Si falla el JSON, mostramos una parte del texto para depurar (o simplemente error)
+                                    st.error("❌ Error de formato: El servidor no devolvió JSON. Verifica que la cuenta no esté vencida o bloqueada.")
                             else: 
-                                st.error(f"❌ Error HTTP {res.status_code}: No se pudo conectar al servidor.")
+                                st.error(f"❌ Error HTTP {res.status_code}: No se pudo conectar.")
                         except Exception as e: 
                             st.error(f"❌ Error técnico: {e}")
                 else: 
@@ -264,7 +241,7 @@ if st.session_state.iptv_data is None:
     st.stop()
 
 # ==============================================================================
-#  PANTALLA 3: DASHBOARD RESTAURADO (DISEÑO PC)
+#  PANTALLA 3: DASHBOARD RESTAURADO (DISEÑO PC ORIGINAL)
 # ==============================================================================
 info = st.session_state.iptv_data['info']
 api = st.session_state.iptv_data['api']
@@ -296,11 +273,12 @@ if c4.button("🔌 SALIR"):
     st.session_state.data_series = None
     st.rerun()
 
-# --- CARGA DE DATOS (CON NOMBRES DE CARPETAS) ---
+# --- CARGA DE DATOS ---
 def fetch_data_and_cats(action_content, action_cats):
-    """Descarga contenido y categorías y crea un mapa"""
+    """Descarga contenido y categorías"""
     try:
         headers = {"User-Agent": "Mozilla/5.0"}
+        # Usamos la API limpia directamente
         url_content = f"{api}&action={action_content}"
         url_cats = f"{api}&action={action_cats}"
         
@@ -308,6 +286,7 @@ def fetch_data_and_cats(action_content, action_cats):
         cats = requests.get(url_cats, headers=headers, timeout=20).json()
         
         # Crear diccionario {category_id: "Nombre Carpeta"}
+        # Convertimos ID a string para evitar problemas de tipos
         cat_map = {str(c['category_id']): c['category_name'] for c in cats}
         return data, cat_map
     except: return [], {}
@@ -337,7 +316,6 @@ st.markdown("---")
 c_filtro, c_busq = st.columns([1, 2])
 
 with c_filtro:
-    # Lista de categorías ordenada
     all_cats = ["Todas"] + sorted(list(cat_map.values()))
     sel_cat = st.selectbox("📂 Filtrar por Carpeta", all_cats)
 
@@ -349,9 +327,9 @@ filtered = data
 
 # 1. Filtro Carpeta
 if sel_cat != "Todas":
-    # Buscar ID reverso
     target_ids = [k for k, v in cat_map.items() if v == sel_cat]
     if target_ids:
+        # Aseguramos comparación string vs string
         filtered = [x for x in filtered if str(x.get('category_id')) in target_ids]
 
 # 2. Filtro Texto
@@ -379,7 +357,6 @@ if mode == 'live':
 
 else:
     # GRID PARA VOD (PELIS/SERIES)
-    # Lógica de paginación simple para rendimiento
     limit = 60
     view_items = filtered[:limit]
     
@@ -390,7 +367,6 @@ else:
         with cols[i % 6]:
             img = proxy_img(item.get('stream_icon') or item.get('cover'))
             title = item.get('name')
-            # AQUÍ ESTÁ LA CLAVE: Obtenemos el nombre de la carpeta
             folder_name = cat_map.get(str(item.get('category_id')), "VOD")
             
             st.markdown(f"""
