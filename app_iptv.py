@@ -10,12 +10,12 @@ from datetime import datetime
 from streamlit_javascript import st_javascript
 
 # 1. CONFIGURACIÓN DE PÁGINA
-st.set_page_config(page_title="IPTV Player Pro", layout="wide", page_icon="📺")
+st.set_page_config(page_title="Buscador PRO", layout="wide", page_icon="📺")
 
 # 🔴 TU ID DE GOOGLE SHEETS
 SHEET_URL = "https://docs.google.com/spreadsheets/d/1lyj55UiweI75ej3hbPxvsxlqv2iKWEkKTzEmAvoF6lI/edit"
 
-# 2. ESTILOS VISUALES (TU DISEÑO ORIGINAL RESTAURADO)
+# 2. ESTILOS VISUALES (AJUSTADOS: TEXTOS MÁS GRANDES Y TARJETAS COMPACTAS)
 st.markdown("""
     <style>
     /* Ocultar elementos nativos */
@@ -31,7 +31,7 @@ st.markdown("""
     /* FORMULARIOS */
     div[data-testid="stForm"] {
         background-color: rgba(20, 20, 20, 0.95);
-        padding: 40px;
+        padding: 30px;
         border-radius: 10px;
         border: 1px solid #333;
         box-shadow: 0 0 20px rgba(0, 198, 255, 0.1);
@@ -51,56 +51,64 @@ st.markdown("""
         background-color: #0056b3; box-shadow: 0 0 15px rgba(0, 105, 217, 0.6);
     }
 
-    /* --- TARJETAS VOD (PELIS/SERIES) --- */
+    /* --- TARJETAS VOD (PELIS/SERIES) - DISEÑO COMPACTO --- */
     .vod-card {
-        background-color: #1e1e1e;
-        border-radius: 6px;
+        background-color: #151515; /* Fondo más oscuro para fundirse con la imagen */
+        border-radius: 8px;
         overflow: hidden;
         margin-bottom: 15px;
         border: 1px solid #333;
         transition: transform 0.2s;
         position: relative;
+        box-shadow: 0 2px 5px rgba(0,0,0,0.3);
     }
     .vod-card:hover {
         transform: scale(1.05);
         border-color: #00C6FF;
         z-index: 10;
-        box-shadow: 0 4px 15px rgba(0,0,0,0.5);
+        box-shadow: 0 5px 20px rgba(0,0,0,0.7);
     }
-    /* Contenedor de imagen 2:3 (Póster Vertical) */
+    /* Contenedor de imagen 2:3 EXACTO */
     .vod-img-box {
         width: 100%;
-        padding-top: 150%; /* Aspect Ratio 2:3 */
+        padding-top: 150%; /* Esto fuerza el aspecto de póster */
         position: relative;
     }
     .vod-img {
         position: absolute;
         top: 0; left: 0; bottom: 0; right: 0;
         width: 100%; height: 100%;
-        object-fit: cover;
+        object-fit: cover; /* La imagen llena el espacio sin deformarse */
     }
     .vod-info {
-        padding: 8px;
+        padding: 8px 5px; /* Padding reducido para que no sea tan alto */
         text-align: center;
-        background: rgba(0,0,0,0.8);
+        background: #1a1a1a;
+        border-top: 1px solid #222;
     }
     .vod-title {
-        font-size: 11px; font-weight: bold; color: white;
+        font-size: 13px; /* AUMENTADO */
+        font-weight: bold; 
+        color: white;
         white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+        margin-bottom: 3px;
     }
     .vod-cat {
-        font-size: 9px; color: #00C6FF; margin-top: 2px;
+        font-size: 11px; /* AUMENTADO Y CLARO */
+        color: #00C6FF; 
         white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+        font-weight: 500;
     }
 
     /* --- LISTA CANALES --- */
     .channel-row {
-        background-color: rgba(40, 40, 40, 0.5);
-        padding: 8px 12px;
-        margin-bottom: 5px;
-        border-radius: 4px;
-        border-left: 3px solid #0069d9;
-        display: flex; align-items: center; font-size: 13px;
+        background-color: rgba(35, 35, 35, 0.6);
+        padding: 12px 15px; /* Más espacio para respirar */
+        margin-bottom: 6px;
+        border-radius: 5px;
+        border-left: 4px solid #0069d9;
+        display: flex; 
+        align-items: center; 
     }
     </style>
 """, unsafe_allow_html=True)
@@ -172,8 +180,9 @@ if not st.session_state.logged_in:
 
             u = st.text_input("Usuario")
             p = st.text_input("Contraseña", type="password")
+            btn = st.form_submit_button("INICIAR SESIÓN")
             
-            if st.form_submit_button("INICIAR SESIÓN"):
+            if btn:
                 # Validar IP
                 if not st.session_state.user_ip_cached:
                     st.error("⚠️ Aún no se detecta tu IP. Espera 2 segundos y vuelve a dar clic.")
@@ -191,7 +200,7 @@ if not st.session_state.logged_in:
                     if str(user['username']) == u and str(user['password']) == hashed_input:
                         if str(user['allowed_ip']) == st.session_state.user_ip_cached:
                             st.session_state.logged_in = True
-                            st.session_state.user = u
+                            st.session_state.admin_user = u
                             st.rerun()
                         else:
                             st.error(f"⛔ IP no autorizada ({st.session_state.user_ip_cached})")
@@ -219,25 +228,22 @@ if st.session_state.iptv_data is None:
                 if "http" in url_input:
                     with st.spinner("⏳ Conectando..."):
                         try:
-                            # 1. Limpieza SIMPLE (Igual que en versión PC, sin parseos complejos)
+                            # 1. Limpieza SIMPLE
                             final_api = url_input.strip()
                             final_api = final_api.replace("/get.php", "/player_api.php")
                             final_api = final_api.replace("/xmltv.php", "/player_api.php")
                             
-                            # 2. Petición con User-Agent (Esto evita el bloqueo del servidor)
+                            # 2. Petición con User-Agent
                             headers = {
                                 "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
                             }
                             
-                            # Timeout aumentado a 25s para servidores lentos
+                            # Timeout aumentado a 25s
                             res = requests.get(final_api, headers=headers, timeout=25)
                             
                             if res.status_code == 200:
                                 try:
-                                    # Intentar decodificar JSON
                                     data = res.json()
-                                    
-                                    # Validar estructura
                                     if isinstance(data, dict) and 'user_info' in data:
                                         st.session_state.iptv_data = {
                                             "api": final_api, 
@@ -249,13 +255,11 @@ if st.session_state.iptv_data is None:
                                         st.session_state.data_series = None
                                         st.rerun()
                                     else:
-                                        # Si el JSON no tiene user_info, es un error de credenciales
-                                        st.error("❌ Login fallido: El enlace no contiene información de usuario válida o la cuenta expiró.")
+                                        st.error("❌ Login fallido: El enlace no contiene información de usuario válida.")
                                 except ValueError:
-                                    # Si falla res.json(), es porque el servidor devolvió texto/html (bloqueo o error)
-                                    st.error("❌ Error del servidor: No devolvió datos válidos. Verifica que el enlace esté activo.")
+                                    st.error("❌ Error del servidor: No devolvió datos válidos.")
                             else: 
-                                st.error(f"❌ Error HTTP {res.status_code}: No se pudo conectar.")
+                                st.error(f"❌ Error HTTP {res.status_code}")
                         except Exception as e: 
                             st.error(f"❌ Error técnico: {e}")
                 else: 
@@ -263,12 +267,12 @@ if st.session_state.iptv_data is None:
     st.stop()
 
 # ==============================================================================
-#  PANTALLA 3: DASHBOARD RESTAURADO (DISEÑO PC ORIGINAL)
+#  PANTALLA 3: DASHBOARD VISUAL (DISEÑO AJUSTADO)
 # ==============================================================================
 info = st.session_state.iptv_data['info']
 api = st.session_state.iptv_data['api']
 
-# --- HEADER ---
+# --- HEADER MODIFICADO (TÍTULO CAMBIADO) ---
 exp = "Indefinido"
 if info.get('exp_date') and str(info.get('exp_date')) != 'null':
     try:
@@ -277,7 +281,7 @@ if info.get('exp_date') and str(info.get('exp_date')) != 'null':
 
 st.markdown(f"""
 <div style="background: rgba(20,20,20,0.95); padding:10px 20px; border-radius:10px; display:flex; justify-content:space-between; align-items:center; border-bottom:2px solid #0069d9; margin-bottom:15px;">
-    <span style="font-weight:bold; color:white; font-size:18px;">IPTV PLAYER PRO</span>
+    <span style="font-weight:bold; color:white; font-size:18px;">BUSCADOR DE CONTENIDO PRO</span>
     <div style="font-size:11px; color:#ccc; text-align:right;">
         <div style="margin-bottom:2px;">USER: <b style="color:white">{info.get('username')}</b></div>
         <div>EXP: <b style="color:#00C6FF">{exp}</b> | STATUS: <b style="color:#00FF00">{info.get('status')}</b></div>
@@ -302,7 +306,6 @@ def fetch_data_and_cats(action_content, action_cats):
     """Descarga contenido y categorías"""
     try:
         headers = {"User-Agent": "Mozilla/5.0"}
-        # Usamos la API limpia directamente
         url_content = f"{api}&action={action_content}"
         url_cats = f"{api}&action={action_cats}"
         
@@ -310,7 +313,6 @@ def fetch_data_and_cats(action_content, action_cats):
         cats = requests.get(url_cats, headers=headers, timeout=20).json()
         
         # Crear diccionario {category_id: "Nombre Carpeta"}
-        # Convertimos ID a string para evitar problemas de tipos
         cat_map = {str(c['category_id']): c['category_name'] for c in cats}
         return data, cat_map
     except: return [], {}
@@ -353,7 +355,6 @@ filtered = data
 if sel_cat != "Todas":
     target_ids = [k for k, v in cat_map.items() if v == sel_cat]
     if target_ids:
-        # Aseguramos comparación string vs string
         filtered = [x for x in filtered if str(x.get('category_id')) in target_ids]
 
 # 2. Filtro Texto
@@ -364,23 +365,23 @@ if query:
 st.info(f"Mostrando {len(filtered)} resultados")
 
 if mode == 'live':
-    # LISTA PARA CANALES
+    # LISTA PARA CANALES (LETRA AUMENTADA)
     html = ""
     for item in filtered[:100]:
         cat_name = cat_map.get(str(item.get('category_id')), "General")
         html += f"""
         <div class="channel-row">
-            <div style="width:50px; color:#00C6FF; font-weight:bold;">{item.get('num', '#')}</div>
+            <div style="width:50px; color:#00C6FF; font-weight:bold; font-size:16px;">{item.get('num', '#')}</div>
             <div style="flex-grow:1;">
-                <div style="font-size:9px; color:#888; text-transform:uppercase;">{cat_name}</div>
-                <div style="color:white; font-weight:500;">{item.get('name')}</div>
+                <div style="font-size:11px; color:#aaa; text-transform:uppercase; font-weight:600; margin-bottom:2px;">{cat_name}</div>
+                <div style="color:white; font-weight:500; font-size:15px;">{item.get('name')}</div>
             </div>
         </div>
         """
     st.markdown(html, unsafe_allow_html=True)
 
 else:
-    # GRID PARA VOD (PELIS/SERIES)
+    # GRID PARA VOD (PELIS/SERIES) - DISEÑO COMPACTO Y TEXTO GRANDE
     limit = 60
     view_items = filtered[:limit]
     
