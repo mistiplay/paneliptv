@@ -14,9 +14,9 @@ st.set_page_config(page_title="Buscador PRO", layout="wide", page_icon="📺")
 # 🔴 TU ID DE GOOGLE SHEETS
 SHEET_URL = "https://docs.google.com/spreadsheets/d/1lyj55UiweI75ej3hbPxvsxlqv2iKWEkKTzEmAvoF6lI/edit"
 
-# --- INICIALIZACIÓN DE VARIABLES (ESTO EVITA EL ERROR ROJO) ---
+# --- INICIALIZACIÓN DE VARIABLES ---
 if 'logged_in' not in st.session_state: st.session_state.logged_in = False
-if 'user' not in st.session_state: st.session_state.user = "" # Variable crítica inicializada
+if 'user' not in st.session_state: st.session_state.user = "" 
 if 'iptv_data' not in st.session_state: st.session_state.iptv_data = None
 if 'mode' not in st.session_state: st.session_state.mode = 'live'
 if 'user_ip_cached' not in st.session_state: st.session_state.user_ip_cached = None
@@ -25,7 +25,7 @@ if 'data_live' not in st.session_state: st.session_state.data_live = None
 if 'data_vod' not in st.session_state: st.session_state.data_vod = None
 if 'data_series' not in st.session_state: st.session_state.data_series = None
 
-# 2. ESTILOS VISUALES (AJUSTADOS A TUS PETICIONES)
+# 2. ESTILOS VISUALES (CORREGIDO TARJETAS VOD)
 st.markdown("""
     <style>
     /* Ocultar elementos nativos */
@@ -61,61 +61,56 @@ st.markdown("""
         background-color: #0056b3; box-shadow: 0 0 15px rgba(0, 105, 217, 0.6);
     }
 
-    /* --- TARJETAS VOD (COMPACTAS Y TEXTO GRANDE) --- */
+    /* --- TARJETAS VOD (CORREGIDO - RATIO PERFECTO) --- */
     .vod-card {
-    background-color: #151515;
-    border-radius: 6px;
-    overflow: hidden;      /* Mantiene la imagen dentro de los bordes redondeados */
-    margin-bottom: 15px;
-    border: 1px solid #333;
-    position: relative;
-    padding: 0 !important; /* <--- IMPORTANTE: Elimina el espacio interno */
-    display: flex;         /* Asegura estructura vertical correcta */
-    flex-direction: column;
-}
-    .vod-card:hover {
-        transform: scale(1.05);
-        border-color: #00C6FF;
-        z-index: 10;
+        background-color: #151515;
+        border-radius: 6px;
+        overflow: hidden;
+        border: 1px solid #333;
+        display: flex; 
+        flex-direction: column; 
+        transition: transform 0.2s;
+        box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+        margin-bottom: 15px;
+    }
+    .vod-card:hover { 
+        transform: scale(1.05); 
+        border-color: #00C6FF; 
+        z-index: 10; 
         box-shadow: 0 8px 20px rgba(0,0,0,0.6);
     }
-    /* Imagen Ratio 2:3 */
-   .vod-img-box {
-    width: 100%;           /* Ocupa todo el ancho de la tarjeta */
-    padding-top: 150%;     /* Ratio 2:3 (Altura = 1.5 veces el ancho) */
-    position: relative;    /* Necesario para que la imagen absoluta se pegue aquí */
-    margin: 0;             /* Elimina márgenes extraños */
-}
-    .vod-img {
-    position: absolute;
-    top: 0; left: 0; bottom: 0; right: 0;
-    width: 100%; 
-    height: 100%;
-    object-fit: cover;     /* <--- CLAVE: Estira la imagen para llenar el hueco sin deformar */
-    display: block;        /* Evita espacios fantasmas debajo de la imagen */
-}
+    
+    /* IMAGEN CON RATIO 2:3 FORZADO */
+    .vod-img { 
+        width: 100%; 
+        aspect-ratio: 2/3;  /* <--- ESTO SOLUCIONA TODO */
+        object-fit: cover; 
+        display: block;
+    }
+
     /* Info Compacta */
     .vod-info {
-        padding: 3px 2px; /* Menos padding para reducir tamaño */
+        padding: 5px; 
         text-align: center;
         background: #1a1a1a;
+        flex-grow: 1;
         border-top: 1px solid #222;
     }
     .vod-title {
-        font-size: 13px; /* Más grande */
+        font-size: 13px;
         font-weight: bold; 
         color: white;
         white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
         margin-bottom: 2px;
     }
     .vod-cat {
-        font-size: 11px; /* Más grande y visible */
+        font-size: 11px;
         color: #00C6FF; 
         font-weight: 500;
         white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
     }
 
-    /* --- LISTA CANALES (TEXTO GRANDE) --- */
+    /* --- LISTA CANALES --- */
     .channel-row {
         background-color: rgba(40, 40, 40, 0.6);
         padding: 10px 15px;
@@ -158,13 +153,12 @@ def proxy_img(url):
     return f"https://wsrv.nl/?url={url}&w=200&h=300&fit=cover&output=webp"
 
 # ==============================================================================
-#  PANTALLA 1: LOGIN (ESTABILIZADO)
+#  PANTALLA 1: LOGIN
 # ==============================================================================
 if not st.session_state.logged_in:
     st.markdown("<br><br>", unsafe_allow_html=True)
     c1, c2, c3 = st.columns([1, 2, 1])
     with c2:
-        # Detectar IP sin bloquear
         if not st.session_state.user_ip_cached:
             ip = get_my_ip()
             if ip: 
@@ -200,7 +194,7 @@ if not st.session_state.logged_in:
                     if str(user['username']) == u and str(user['password']) == hashed_input:
                         if str(user['allowed_ip']) == st.session_state.user_ip_cached:
                             st.session_state.logged_in = True
-                            st.session_state.user = u # AQUÍ GUARDAMOS EL USUARIO CORRECTAMENTE
+                            st.session_state.user = u
                             st.rerun()
                         else:
                             st.error(f"⛔ IP no autorizada ({st.session_state.user_ip_cached})")
@@ -213,13 +207,12 @@ if not st.session_state.logged_in:
     st.stop()
 
 # ==============================================================================
-#  PANTALLA 2: CONECTAR URL (SIN ERRORES JSON)
+#  PANTALLA 2: CONECTAR URL
 # ==============================================================================
 if st.session_state.iptv_data is None:
     st.markdown("<br>", unsafe_allow_html=True)
     c1, c2, c3 = st.columns([1, 2, 1])
     with c2:
-        # AQUÍ USAMOS LA VARIABLE YA INICIALIZADA, NO DARÁ ERROR
         st.markdown(f"<p style='text-align:center; color:#aaa'>Usuario: <b style='color:white'>{st.session_state.user}</b></p>", unsafe_allow_html=True)
         
         with st.form("connect_iptv"):
@@ -230,12 +223,10 @@ if st.session_state.iptv_data is None:
                 if "http" in url_input:
                     with st.spinner("⏳ Conectando..."):
                         try:
-                            # 1. Limpieza SIMPLE (Igual que en versión PC)
                             final_api = url_input.strip()
                             final_api = final_api.replace("/get.php", "/player_api.php")
                             final_api = final_api.replace("/xmltv.php", "/player_api.php")
                             
-                            # 2. Petición con User-Agent (Anti-bloqueo)
                             headers = {"User-Agent": "Mozilla/5.0"}
                             res = requests.get(final_api, headers=headers, timeout=25)
                             
@@ -247,7 +238,6 @@ if st.session_state.iptv_data is None:
                                             "api": final_api, 
                                             "info": data['user_info']
                                         }
-                                        # Resetear caches
                                         st.session_state.data_live = None
                                         st.session_state.data_vod = None
                                         st.session_state.data_series = None
@@ -265,12 +255,12 @@ if st.session_state.iptv_data is None:
     st.stop()
 
 # ==============================================================================
-#  PANTALLA 3: DASHBOARD VISUAL (DISEÑO AJUSTADO)
+#  PANTALLA 3: DASHBOARD VISUAL
 # ==============================================================================
 info = st.session_state.iptv_data['info']
 api = st.session_state.iptv_data['api']
 
-# --- HEADER (TITULO ACTUALIZADO) ---
+# --- HEADER ---
 exp = "Indefinido"
 if info.get('exp_date') and str(info.get('exp_date')) != 'null':
     try:
@@ -358,7 +348,7 @@ if query:
 st.info(f"Mostrando {len(filtered)} resultados")
 
 if mode == 'live':
-    # LISTA PARA CANALES (TEXTO GRANDE)
+    # LISTA PARA CANALES
     html = ""
     for item in filtered[:100]:
         cat_name = cat_map.get(str(item.get('category_id')), "General")
@@ -374,7 +364,7 @@ if mode == 'live':
     st.markdown(html, unsafe_allow_html=True)
 
 else:
-    # GRID PARA VOD (TARJETA AJUSTADA)
+    # GRID PARA VOD (CORREGIDO CON EL FORMATO LIMPIO)
     limit = 60
     view_items = filtered[:limit]
     
@@ -386,11 +376,10 @@ else:
             title = item.get('name')
             folder_name = cat_map.get(str(item.get('category_id')), "VOD")
             
+            # HTML SIN CONTENEDORES EXTRAÑOS - USO DIRECTO DE CSS
             st.markdown(f"""
             <div class="vod-card">
-                <div class="vod-img-box">
-                    <img src="{img}" class="vod-img" loading="lazy">
-                </div>
+                <img src="{img}" class="vod-img" loading="lazy">
                 <div class="vod-info">
                     <div class="vod-title" title="{title}">{title}</div>
                     <div class="vod-cat">📂 {folder_name}</div>
