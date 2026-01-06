@@ -48,8 +48,8 @@ def main():
     if not st.session_state.admin_ok:
         pwd = st.text_input("🔒 Contraseña Maestra", type="password")
         if st.button("Entrar"):
-            # CAMBIA "admin123" POR TU CLAVE SEGURA
-            if pwd == "franchesca92": 
+            # Clave secreta
+            if pwd == st.secrets["general"]["admin_password"]: 
                 st.session_state.admin_ok = True
                 st.rerun()
             else: st.error("Acceso denegado")
@@ -125,3 +125,4 @@ def main():
 if __name__ == '__main__':
 
     main()
+
