@@ -67,7 +67,7 @@ def inject_styles():
         .vod-title { font-size: 13px; font-weight: bold; color: white; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
         
         .vod-cat { 
-            font-size: 10px !important;
+            font-size: 12px !important;
             color: #00C6FF !important;
             white-space: nowrap !important;
             overflow: hidden !important;
@@ -374,6 +374,7 @@ else:
     
     if len(filtered) > limit:
         st.warning(f"⚠️ Mostrando los primeros {limit} resultados. Usa el buscador para ver más.")
+
 
 
 
