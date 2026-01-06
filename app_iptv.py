@@ -74,7 +74,7 @@ st.markdown("""
     .vod-img { width: 100%; aspect-ratio: 2/3; object-fit: cover; }
     .vod-info { padding: 8px; text-align: center; }
     .vod-title { font-size: 13px; font-weight: bold; color: white; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-    .vod-cat { font-size: 11px; color: #00C6FF; }
+    .vod-cat { font-size: 13px; color: #00C6FF; }
 
     /* --- LISTA CANALES --- */
     .channel-row {
@@ -358,3 +358,4 @@ else:
     
     if len(filtered) > limit:
         st.warning(f"⚠️ Mostrando los primeros {limit} resultados. Usa el buscador para ver más.")
+
