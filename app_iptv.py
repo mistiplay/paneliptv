@@ -2,6 +2,7 @@ import streamlit as st
 import requests
 import hashlib
 import time
+import html  # <--- IMPORTANTE: Agregado para corregir el error de texto plano
 from oauth2client.service_account import ServiceAccountCredentials
 from urllib.parse import urlparse, parse_qs
 from datetime import datetime
@@ -14,7 +15,7 @@ st.set_page_config(page_title="Buscador PRO", layout="wide", page_icon="📺")
 # 🔴 TU ID DE GOOGLE SHEETS
 SHEET_URL = "https://docs.google.com/spreadsheets/d/1lyj55UiweI75ej3hbPxvsxlqv2iKWEkKTzEmAvoF6lI/edit"
 
-# --- INICIALIZACIÓN DE VARIABLES (ESTO EVITA EL ERROR ROJO) ---
+# --- INICIALIZACIÓN DE VARIABLES ---
 if 'logged_in' not in st.session_state: st.session_state.logged_in = False
 if 'user' not in st.session_state: st.session_state.user = "" 
 if 'iptv_data' not in st.session_state: st.session_state.iptv_data = None
@@ -25,7 +26,7 @@ if 'data_live' not in st.session_state: st.session_state.data_live = None
 if 'data_vod' not in st.session_state: st.session_state.data_vod = None
 if 'data_series' not in st.session_state: st.session_state.data_series = None
 
-# 2. ESTILOS VISUALES (AJUSTADOS - RESPONSIVE MEJORADO)
+# 2. ESTILOS VISUALES (SOLO CAMBIOS EN GRID/MOVIL)
 st.markdown("""
     <style>
     /* Ocultar elementos nativos */
@@ -61,35 +62,49 @@ st.markdown("""
         background-color: #0056b3; box-shadow: 0 0 15px rgba(0, 105, 217, 0.6);
     }
 
-    /* --- GRID CONTAINER (NUEVO) --- */
-    .vod-grid {
+    /* --- GRID SYSTEM (SOLUCIÓN MOVIL 3 COLUMNAS) --- */
+    .vod-container {
         display: grid;
-        grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); /* Desktop: Tarjetas de 140px min */
-        gap: 15px;
+        /* Desktop: Automático, mínimo 130px de ancho */
+        grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); 
+        gap: 10px;
         padding: 10px 0;
+    }
+
+    /* --- MOVIL ESPECIFICO --- */
+    @media (max-width: 768px) {
+        .vod-container {
+            /* FUERZA BRUTA: 3 columnas exactas en móvil */
+            grid-template-columns: repeat(3, 1fr) !important; 
+            gap: 5px !important;
+        }
+        /* Texto más pequeño en móvil para que quepa */
+        .vod-title { font-size: 9px !important; }
+        .vod-cat { font-size: 7px !important; display: none; } /* Oculto categoria en movil para ahorrar espacio */
     }
 
     /* --- TARJETAS VOD --- */
     .vod-card {
         background-color: #151515;
-        border-radius: 6px;
+        border-radius: 4px;
         overflow: hidden;
         border: 1px solid #333;
         transition: transform 0.2s;
         position: relative;
-        box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+        box-shadow: 0 2px 5px rgba(0,0,0,0.5);
+        cursor: pointer;
     }
     .vod-card:hover {
-        transform: scale(1.05);
         border-color: #00C6FF;
-        z-index: 10;
-        box-shadow: 0 8px 20px rgba(0,0,0,0.6);
+        transform: scale(1.03);
+        z-index: 5;
     }
-    /* Imagen Ratio 2:3 */
+    
+    /* Contenedor Imagen (Ratio estricto) */
     .vod-img-box {
-        width: 100%;
-        padding-top: 150%; 
         position: relative;
+        width: 100%;
+        padding-top: 150%; /* Aspect Ratio 2:3 */
     }
     .vod-img {
         position: absolute;
@@ -97,45 +112,34 @@ st.markdown("""
         width: 100%; height: 100%;
         object-fit: cover;
     }
-    /* Info Compacta */
+    
+    /* Info text */
     .vod-info {
-        padding: 6px 4px;
+        padding: 5px;
         text-align: center;
-        background: #1a1a1a;
-        border-top: 1px solid #222;
+        background: #111;
     }
     .vod-title {
-        font-size: 13px;
+        font-size: 11px;
         font-weight: bold; 
         color: white;
         white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-        margin-bottom: 2px;
+        margin: 0;
     }
     .vod-cat {
-        font-size: 11px;
+        font-size: 9px;
         color: #00C6FF; 
-        font-weight: 500;
+        margin-top: 2px;
         white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-    }
-
-    /* --- AJUSTES MOVIL (SOLO AQUI CAMBIA EL TAMAÑO) --- */
-    @media (max-width: 768px) {
-        .vod-grid {
-            grid-template-columns: repeat(3, 1fr) !important; /* FUERZA 3 COLUMNAS EN MOVIL */
-            gap: 6px;
-        }
-        .vod-title { font-size: 10px; }
-        .vod-cat { font-size: 8px; }
-        .vod-info { padding: 4px 2px; }
     }
 
     /* --- LISTA CANALES --- */
     .channel-row {
         background-color: rgba(40, 40, 40, 0.6);
-        padding: 10px 15px;
-        margin-bottom: 6px;
-        border-radius: 5px;
-        border-left: 4px solid #0069d9;
+        padding: 8px 12px;
+        margin-bottom: 5px;
+        border-radius: 4px;
+        border-left: 3px solid #0069d9;
         display: flex; align-items: center; 
     }
     </style>
@@ -363,50 +367,57 @@ st.info(f"Mostrando {len(filtered)} resultados")
 
 if mode == 'live':
     # LISTA PARA CANALES
-    html = ""
+    html_block = ""
     for item in filtered[:100]:
         cat_name = cat_map.get(str(item.get('category_id')), "General")
-        html += f"""
+        name_safe = html.escape(item.get('name', ''))
+        
+        html_block += f"""
         <div class="channel-row">
             <div style="width:50px; color:#00C6FF; font-weight:bold; font-size:16px;">{item.get('num', '#')}</div>
             <div style="flex-grow:1;">
                 <div style="font-size:12px; color:#aaa; text-transform:uppercase; font-weight:600; margin-bottom:2px;">{cat_name}</div>
-                <div style="color:white; font-weight:500; font-size:15px;">{item.get('name')}</div>
+                <div style="color:white; font-weight:500; font-size:15px;">{name_safe}</div>
             </div>
         </div>
         """
-    st.markdown(html, unsafe_allow_html=True)
+    st.markdown(html_block, unsafe_allow_html=True)
 
 else:
-    # GRID MEJORADO CON CSS PURO (Solución Mobile 3 columnas)
+    # --- GRID VOD/SERIES (CORREGIDO PARA EVITAR TEXTO PLANO) ---
     limit = 60
     view_items = filtered[:limit]
     
-    # Abrimos contenedor grid
-    grid_html = '<div class="vod-grid">'
+    # Iniciar contenedor Grid
+    grid_html = '<div class="vod-container">'
     
     for item in view_items:
-        img = proxy_img(item.get('stream_icon') or item.get('cover'))
-        title = item.get('name')
-        folder_name = cat_map.get(str(item.get('category_id')), "VOD")
+        # 1. Obtener imagen
+        img_url = item.get('stream_icon') or item.get('cover')
+        img = proxy_img(img_url)
         
-        # Agregamos cada tarjeta al HTML string
+        # 2. LIMPIEZA DE CARACTERES (CRITICO PARA QUE NO FALLE)
+        # Usamos html.escape para que comillas en titulos no rompan el HTML
+        title_safe = html.escape(item.get('name', 'Sin título'))
+        cat_id = str(item.get('category_id'))
+        folder_name = html.escape(cat_map.get(cat_id, "VOD"))
+        
+        # 3. Construcción segura de la tarjeta
         grid_html += f"""
         <div class="vod-card">
             <div class="vod-img-box">
-                <img src="{img}" class="vod-img" loading="lazy">
+                <img src="{img}" class="vod-img" loading="lazy" alt="cover">
             </div>
             <div class="vod-info">
-                <div class="vod-title" title="{title}">{title}</div>
+                <div class="vod-title" title="{title_safe}">{title_safe}</div>
                 <div class="vod-cat">📂 {folder_name}</div>
             </div>
         </div>
         """
     
-    # Cerramos contenedor
-    grid_html += '</div>'
+    grid_html += '</div>' # Cerrar contenedor
     
-    # Renderizamos todo el bloque de una vez para que el CSS Grid funcione
+    # Renderizado final
     st.markdown(grid_html, unsafe_allow_html=True)
             
     if len(filtered) > limit:
