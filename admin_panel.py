@@ -5,17 +5,33 @@ import gspread
 from oauth2client.service_account import ServiceAccountCredentials
 import time
 
-# --- CONFIGURACIÓN ---
-st.set_page_config(page_title="☁️ Admin Panel", page_icon="⚙️", layout="centered")
+# CONFIGURACIÓN
+st.set_page_config(page_title="Admin Panel", page_icon="⚙️", layout="centered")
 
 # 🔴 PEGA TU ENLACE DE GOOGLE SHEETS AQUÍ
 SHEET_URL = "https://docs.google.com/spreadsheets/d/1lyj55UiweI75ej3hbPxvsxlqv2iKWEkKTzEmAvoF6lI/edit"
 
-# --- CONEXIÓN SEGURA A LA NUBE ---
+# --- 🎨 ESTILOS VISUALES (Consistentes con la App) ---
+st.markdown("""
+    <style>
+    .stApp { background-color: #0e0e0e; color: white; }
+    div[data-testid="stForm"] { 
+        background-color: #1e1e1e; padding: 25px; border-radius: 10px; border: 1px solid #333; 
+    }
+    .stTextInput>div>div>input { background-color: #2d2d2d; color: white; border: 1px solid #555; }
+    .stButton>button { 
+        width: 100%; background-color: #0069d9; color: white; border: none; font-weight: bold; 
+    }
+    /* Tablas */
+    div[data-testid="stDataFrame"] { background-color: #1e1e1e; border-radius: 5px; }
+    </style>
+""", unsafe_allow_html=True)
+
+# --- CONEXIÓN SEGURA NUBE ---
 def connect_db():
     try:
         scope = ['https://spreadsheets.google.com/feeds', 'https://www.googleapis.com/auth/drive']
-        # Lee credenciales desde los Secretos de Streamlit Cloud
+        # Secretos
         creds_dict = dict(st.secrets["gcp_service_account"])
         creds_dict["private_key"] = creds_dict["private_key"].replace("\\n", "\n")
         
@@ -24,105 +40,91 @@ def connect_db():
         sheet = client.open_by_url(SHEET_URL).sheet1
         return sheet
     except Exception as e:
-        st.error(f"Error de conexión con Google Sheets: {e}")
+        st.error(f"Error Sheets: {e}")
         st.stop()
 
 def make_hash(password):
     return hashlib.sha256(str.encode(password)).hexdigest()
 
 # --- INTERFAZ ---
-st.markdown("""
-    <style>
-    .stApp { background-color: #1a1a1a; color: white; }
-    div[data-testid="stForm"] { background-color: #2d2d2d; padding: 20px; border-radius: 10px; }
-    .stButton>button { width: 100%; background-color: #00C6FF; color: white; border:none; font-weight:bold;}
-    </style>
-""", unsafe_allow_html=True)
+st.markdown("<h1 style='text-align:center; color:#00C6FF;'>⚙️ PANEL MAESTRO</h1>", unsafe_allow_html=True)
 
-def main():
-    st.title("⚙️ Gestión de Usuarios (Nube)")
+# 1. LOGIN ADMIN (Usando contraseña desde Secretos para seguridad en Repo Público)
+if 'admin_ok' not in st.session_state: st.session_state.admin_ok = False
 
-    # 1. LOGIN DEL ADMINISTRADOR (Protege tu panel en la nube)
-    if 'admin_ok' not in st.session_state: st.session_state.admin_ok = False
-
-    if not st.session_state.admin_ok:
-        pwd = st.text_input("🔒 Contraseña Maestra", type="password")
-        if st.button("Entrar"):
-            # Clave secreta
-            if pwd == st.secrets["general"]["admin_password"]: 
+if not st.session_state.admin_ok:
+    pwd = st.text_input("🔑 Clave de Administrador", type="password")
+    if st.button("Entrar"):
+        # LEEMOS LA CLAVE DESDE LOS SECRETOS (NO ESTÁ EN EL CÓDIGO)
+        try:
+            secret_pass = st.secrets["general"]["admin_password"]
+            if pwd == secret_pass:
                 st.session_state.admin_ok = True
                 st.rerun()
-            else: st.error("Acceso denegado")
-        st.stop()
+            else: st.error("Clave incorrecta")
+        except:
+            st.error("Error: Configura 'admin_password' en los secrets de Streamlit Cloud.")
+    st.stop()
 
-    # 2. CARGAR DATOS EN VIVO
-    sheet = connect_db()
-    data = sheet.get_all_records()
-    df = pd.DataFrame(data)
+# 2. GESTIÓN
+sheet = connect_db()
+df = pd.DataFrame(sheet.get_all_records())
 
-    st.success(f"Conectado a Google Sheets | Usuarios: {len(df)}")
+st.info(f"Usuarios activos: {len(df)}")
 
-    tab1, tab2 = st.tabs(["👥 Lista y Editar", "➕ Crear Nuevo"])
+tab1, tab2 = st.tabs(["📝 Gestionar", "➕ Nuevo Usuario"])
 
-    with tab1:
-        if not df.empty:
-            # Mostrar tabla limpia
-            st.dataframe(df[['username', 'allowed_ip', 'notas']], use_container_width=True)
+with tab1:
+    if not df.empty:
+        st.dataframe(df[['username', 'allowed_ip', 'notas']], use_container_width=True)
+        
+        user_select = st.selectbox("Seleccionar Usuario para Editar/Borrar:", df['username'].tolist())
+        
+        if user_select:
+            # Buscar fila (Indices en Sheets empiezan en 1, +1 header)
+            cell = sheet.find(user_select)
+            row_idx = cell.row
+            user_data = df[df['username'] == user_select].iloc[0]
             
-            # Selector para editar
-            user_select = st.selectbox("Editar usuario:", df['username'].tolist())
-            if user_select:
-                # Buscar fila exacta (Google Sheets usa base 1, +1 por encabezado)
-                cell = sheet.find(user_select)
-                row_idx = cell.row
-                user_info = df[df['username'] == user_select].iloc[0]
-
-                with st.form("edit_form"):
-                    st.write(f"Editando: **{user_select}**")
-                    new_ip = st.text_input("IP Permitida", value=user_info['allowed_ip'])
-                    new_note = st.text_input("Notas", value=user_info['notas'])
-                    new_pass = st.text_input("Cambiar Contraseña (Opcional)", type="password")
-                    
-                    if st.form_submit_button("💾 Guardar Cambios"):
-                        with st.spinner("Actualizando nube..."):
-                            sheet.update_cell(row_idx, 3, new_ip) # Col 3 = IP
-                            sheet.update_cell(row_idx, 4, new_note) # Col 4 = Notas
-                            if new_pass:
-                                sheet.update_cell(row_idx, 2, make_hash(new_pass)) # Col 2 = Pass
-                            st.success("¡Guardado!")
-                            time.sleep(1)
-                            st.rerun()
+            with st.form("edit"):
+                st.write(f"Editando a: **{user_select}**")
+                n_ip = st.text_input("IP", value=user_data['allowed_ip'])
+                n_nota = st.text_input("Nota", value=user_data['notas'])
+                n_pass = st.text_input("Nueva Contraseña (Opcional)", type="password")
                 
-                if st.button("🗑️ Eliminar Usuario"):
-                    sheet.delete_rows(row_idx)
-                    st.warning("Usuario eliminado.")
+                if st.form_submit_button("Guardar Cambios"):
+                    sheet.update_cell(row_idx, 3, n_ip)
+                    sheet.update_cell(row_idx, 4, n_nota)
+                    if n_pass:
+                        sheet.update_cell(row_idx, 2, make_hash(n_pass))
+                    st.success("Actualizado.")
                     time.sleep(1)
                     st.rerun()
-        else:
-            st.info("No hay usuarios todavía.")
-
-    with tab2:
-        with st.form("add_form"):
-            u = st.text_input("Usuario")
-            p = st.text_input("Contraseña", type="password")
-            i = st.text_input("IP Permitida (Ej: 190.23.12.1)")
-            n = st.text_input("Notas")
             
-            if st.form_submit_button("🚀 Crear Usuario"):
-                if u and p and i:
-                    # Verificar duplicados
-                    if u in df['username'].values:
-                        st.error("¡El usuario ya existe!")
-                    else:
-                        with st.spinner("Creando..."):
-                            sheet.append_row([u, make_hash(p), i, n])
-                            st.success("Usuario creado exitosamente.")
-                            time.sleep(1)
-                            st.rerun()
+            if st.button("🗑️ Eliminar Usuario Permanentemente"):
+                sheet.delete_rows(row_idx)
+                st.warning("Eliminado.")
+                time.sleep(1)
+                st.rerun()
+    else:
+        st.warning("La base de datos está vacía.")
+
+with tab2:
+    with st.form("add"):
+        c1, c2 = st.columns(2)
+        u = c1.text_input("Usuario")
+        p = c2.text_input("Contraseña", type="password")
+        i = st.text_input("IP Permitida")
+        n = st.text_input("Notas (Cliente)")
+        
+        if st.form_submit_button("Crear Usuario"):
+            if u and p and i:
+                if not df.empty and u in df['username'].values:
+                    st.error("El usuario ya existe.")
                 else:
-                    st.warning("Completa usuario, contraseña e IP.")
-
-if __name__ == '__main__':
-
-    main()
-
+                    sheet.append_row([u, make_hash(p), i, n])
+                    st.success("Usuario creado.")
+                    time.sleep(1)
+                    st.rerun()
+            else:
+                st.warning("Faltan datos obligatorios.")
