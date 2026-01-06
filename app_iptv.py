@@ -25,26 +25,29 @@ if 'data_live' not in st.session_state: st.session_state.data_live = None
 if 'data_vod' not in st.session_state: st.session_state.data_vod = None
 if 'data_series' not in st.session_state: st.session_state.data_series = None
 
-# 2. ESTILOS VISUALES (MODIFICADO: VOD EXACTO AL EJEMPLO)
+# 2. ESTILOS VISUALES (CON FONDO DE IMAGEN DEL EJEMPLO)
 st.markdown("""
     <style>
     /* Ocultar elementos nativos */
     #MainMenu, header, footer {visibility: hidden;}
-    
-    /* FONDO GENERAL */
+
+    /* --- FONDO DE PANTALLA (IMAGEN DEL EJEMPLO) --- */
     .stApp {
-        background-color: #0e0e0e;
-        background-image: radial-gradient(circle at center, #1a1a1a 0%, #000 100%);
-        color: white;
+        background-image: url("https://cdn.maxplayer.tv/demo/background.png");
+        background-size: cover;
+        background-position: center;
+        background-repeat: no-repeat;
+        background-attachment: fixed;
+        color: white; /* Mantiene el texto blanco por si acaso */
     }
 
     /* FORMULARIOS */
     div[data-testid="stForm"] {
-        background-color: rgba(20, 20, 20, 0.95);
+        background-color: rgba(20, 20, 20, 0.95); /* Fondo oscuro semi-transparente */
         padding: 30px;
         border-radius: 10px;
         border: 1px solid #333;
-        box-shadow: 0 0 20px rgba(0, 198, 255, 0.1);
+        box-shadow: 0 0 20px rgba(0, 0, 0, 0.5); /* Sombra más oscura para resaltar sobre imagen */
     }
 
     /* INPUTS */
@@ -54,14 +57,14 @@ st.markdown("""
 
     /* BOTONES */
     .stButton > button {
-        width: 100%; background-color: #0069d9; color: white; border: none;
+        width: 100%; background-color: #0d6efd; color: white; border: none; /* Color azul del ejemplo */
         font-weight: 600; text-transform: uppercase; height: 45px; transition: all 0.3s;
     }
     .stButton > button:hover {
-        background-color: #0056b3; box-shadow: 0 0 15px rgba(0, 105, 217, 0.6);
+        background-color: #0b5ed7; box-shadow: 0 4px 12px rgba(13, 110, 253, 0.4);
     }
 
-    /* --- ESTILO VOD EXACTO (COPIADO DEL EJEMPLO ANTERIOR) --- */
+    /* --- ESTILO VOD EXACTO --- */
     .vod-grid {
         display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
         gap: 15px; width: 100%; margin-top: 20px;
@@ -74,16 +77,17 @@ st.markdown("""
     .vod-img { width: 100%; aspect-ratio: 2/3; object-fit: cover; }
     .vod-info { padding: 8px; text-align: center; }
     .vod-title { font-size: 13px; font-weight: bold; color: white; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-    .vod-cat { font-size: 13px; color: #00C6FF; }
+    # AQUI ES DONDE CAMBIAS EL TAMAÑO DE LETRA DE LA CARPETA
+    .vod-cat { font-size: 11px; color: #00C6FF; }
 
     /* --- LISTA CANALES --- */
     .channel-row {
-        background-color: rgba(40, 40, 40, 0.6);
+        background-color: rgba(30, 30, 30, 0.95); /* Un poco más oscuro para contraste */
         padding: 10px 15px;
         margin-bottom: 6px;
         border-radius: 5px;
-        border-left: 4px solid #0069d9;
-        display: flex; align-items: center; 
+        border-left: 4px solid #00C6FF; /* Azul cian del ejemplo */
+        display: flex; align-items: center;
     }
     </style>
 """, unsafe_allow_html=True)
@@ -358,4 +362,5 @@ else:
     
     if len(filtered) > limit:
         st.warning(f"⚠️ Mostrando los primeros {limit} resultados. Usa el buscador para ver más.")
+
 
