@@ -81,13 +81,13 @@ st.markdown("""
     /* Imagen Ratio 2:3 */
     .vod-img-box {
         width: 100%;
-        padding-top: 100%; 
+        padding-top: 120%; 
         position: relative;
     }
     .vod-img {
         position: absolute;
         top: 0; left: 0; bottom: 0; right: 0;
-        width: 100%; height: 80%;
+        width: 100%; height: 100%;
         object-fit: cover;
     }
     /* Info Compacta */
