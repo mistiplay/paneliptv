@@ -81,7 +81,7 @@ st.markdown("""
     /* Imagen Ratio 2:3 */
     .vod-img-box {
         width: 100%;
-        padding-top: 50%; 
+        padding-top: 100%; 
         position: relative;
     }
     .vod-img {
@@ -396,5 +396,6 @@ else:
             
     if len(filtered) > limit:
         st.warning(f"⚠️ Mostrando los primeros {limit} resultados. Usa el buscador para ver más.")
+
 
 
