@@ -12,7 +12,7 @@ from streamlit_javascript import st_javascript
 st.set_page_config(page_title="IPTV Player Pro", layout="wide", page_icon="📺")
 
 # 🔴 PEGA TU ENLACE DE GOOGLE SHEETS AQUÍ
-SHEET_URL = "https://docs.google.com/spreadsheets/d/TU_ID_DE_HOJA_AQUI/edit"
+SHEET_URL = "https://docs.google.com/spreadsheets/d/1lyj55UiweI75ej3hbPxvsxlqv2iKWEkKTzEmAvoF6lI/edit"
 
 # --- 🎨 ESTILOS VISUALES ---
 st.markdown("""
@@ -317,3 +317,4 @@ if q:
             st.error(f"Error de conexión con el proveedor: {e}")
 else:
     st.info("👆 Usa el buscador para encontrar contenido.")
+
