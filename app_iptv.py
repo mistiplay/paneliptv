@@ -79,11 +79,11 @@ st.markdown("""
         box-shadow: 0 8px 20px rgba(0,0,0,0.6);
     }
     /* Imagen Ratio 2:3 */
-    .vod-img-box {
-        width: 100%;
-        padding-top: 100%; 
-        position: relative;
-    }
+   .vod-img-box {
+       width: 100%;
+       padding-top: 150%;  /* CAMBIO: 100% -> 150% para formato póster */
+       position: relative;
+   }
     .vod-img {
         position: absolute;
         top: 0; left: 0; bottom: 0; right: 0;
