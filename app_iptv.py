@@ -249,19 +249,23 @@ if not st.session_state.logged_in:
 
                 found = False
                 for user in users_db:
-                    if str(user['username']) == u:
-                        if str(user['allowed_ip']) == st.session_state.user_ip:
+                    if str(user.get('username')).strip() == u.strip():
+                        found = True
+                        allowed_ips_str = str(user.get('allowed_ip', ''))
+                        # Separar por coma y limpiar espacios
+                        allowed_ips = [ip.strip() for ip in allowed_ips_str.split(',') if ip.strip()]
+                        
+                        if st.session_state.user_ip in allowed_ips:
                             st.session_state.logged_in = True
                             st.session_state.user = u 
                             st.rerun()
                         else:
                             st.error(f"⛔ IP no autorizada ({st.session_state.user_ip})")
-                            found = True
                             break
-                        found = True
                 
                 if not found:
                     st.error("❌ Usuario no encontrado o IP no coincide.")
+
     st.stop()
 
 # ==============================================================================
@@ -477,4 +481,5 @@ else:
                 else:
                     st.session_state.series_display_count += 60
                 st.rerun()
+
 
