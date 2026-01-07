@@ -226,12 +226,12 @@ if not st.session_state.admin_ok:
     if st.session_state.user_ip:
         st.markdown(f'<div class="ip-badge">IP Detectada: {st.session_state.user_ip}</div>', unsafe_allow_html=True)
         
-        if st.button("Verificar Acceso"):
-            if check_ip_is_admin(st.session_state.user_ip):
-                st.session_state.admin_ok = True
-                st.rerun()
-            else: 
-                st.error(f"❌ IP no autorizada: {st.session_state.user_ip}")
+        if check_ip_is_admin(st.session_state.user_ip):
+            st.session_state.admin_ok = True
+            st.rerun()
+        else: 
+            st.error("❌ IP no registrada")
+            st.stop()
     else:
         st.markdown("""
             <div style="text-align:center; margin:15px 0;">
@@ -239,7 +239,8 @@ if not st.session_state.admin_ok:
                 <span style="color:#00C6FF; font-size:13px;">Detectando IP...</span>
             </div>
         """, unsafe_allow_html=True)
-    st.stop()
+        st.stop()
+
 
 # 3. MOSTRAR BADGE SI ES ADMIN
 st.markdown(f'<div class="admin-badge">🔐 ADMIN MODE - IP: {st.session_state.user_ip}</div>', unsafe_allow_html=True)
@@ -450,4 +451,5 @@ with tab3:
                     st.markdown("<p style='color:#aaa; text-align:center; margin-top:30px;'>👆 Haz clic en ℹ️<br>para ver detalles</p>", unsafe_allow_html=True)
     else:
         st.error("❌ Error al conectar con Hoja 2")
+
 
