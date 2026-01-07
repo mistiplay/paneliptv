@@ -24,6 +24,20 @@ st.markdown("""
     }
     /* Tablas */
     div[data-testid="stDataFrame"] { background-color: #1e1e1e; border-radius: 5px; }
+    
+    /* BADGE ADMIN */
+    .admin-badge {
+        display: inline-block;
+        background-color: rgba(255, 193, 7, 0.2);
+        border: 2px solid #FFC107;
+        color: #FFC107;
+        padding: 10px 16px;
+        border-radius: 20px;
+        font-size: 12px;
+        font-weight: 700;
+        margin: 10px 0;
+        text-transform: uppercase;
+    }
     </style>
 """, unsafe_allow_html=True)
 
@@ -31,7 +45,6 @@ st.markdown("""
 def connect_db():
     try:
         scope = ['https://spreadsheets.google.com/feeds', 'https://www.googleapis.com/auth/drive']
-        # Secretos
         creds_dict = dict(st.secrets["gcp_service_account"])
         creds_dict["private_key"] = creds_dict["private_key"].replace("\\n", "\n")
         
@@ -46,27 +59,37 @@ def connect_db():
 def make_hash(password):
     return hashlib.sha256(str.encode(password)).hexdigest()
 
+def check_is_admin(password):
+    """Verifica si la contraseña es la de admin"""
+    try:
+        secret_pass = st.secrets["general"]["admin_password"]
+        return password == secret_pass
+    except:
+        return False
+
 # --- INTERFAZ ---
 st.markdown("<h1 style='text-align:center; color:#00C6FF;'>⚙️ PANEL MAESTRO</h1>", unsafe_allow_html=True)
 
-# 1. LOGIN ADMIN (Usando contraseña desde Secretos para seguridad en Repo Público)
+# 1. LOGIN ADMIN
 if 'admin_ok' not in st.session_state: st.session_state.admin_ok = False
+if 'is_admin' not in st.session_state: st.session_state.is_admin = False
 
 if not st.session_state.admin_ok:
     pwd = st.text_input("🔑 Clave de Administrador", type="password")
     if st.button("Entrar"):
-        # LEEMOS LA CLAVE DESDE LOS SECRETOS (NO ESTÁ EN EL CÓDIGO)
-        try:
-            secret_pass = st.secrets["general"]["admin_password"]
-            if pwd == secret_pass:
-                st.session_state.admin_ok = True
-                st.rerun()
-            else: st.error("Clave incorrecta")
-        except:
-            st.error("Error: Configura 'admin_password' en los secrets de Streamlit Cloud.")
+        if check_is_admin(pwd):
+            st.session_state.admin_ok = True
+            st.session_state.is_admin = True
+            st.rerun()
+        else: 
+            st.error("Clave incorrecta")
     st.stop()
 
-# 2. GESTIÓN
+# 2. MOSTRAR BADGE SI ES ADMIN
+if st.session_state.is_admin:
+    st.markdown('<div class="admin-badge">🔐 MODO ADMINISTRADOR</div>', unsafe_allow_html=True)
+
+# 3. GESTIÓN
 sheet = connect_db()
 df = pd.DataFrame(sheet.get_all_records())
 
@@ -81,7 +104,6 @@ with tab1:
         user_select = st.selectbox("Seleccionar Usuario para Editar/Borrar:", df['username'].tolist())
         
         if user_select:
-            # Buscar fila (Indices en Sheets empiezan en 1, +1 header)
             cell = sheet.find(user_select)
             row_idx = cell.row
             user_data = df[df['username'] == user_select].iloc[0]
