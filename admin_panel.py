@@ -202,12 +202,13 @@ def get_my_ip():
         return None
 
 def check_ip_is_admin(ip):
-    """Verifica si la IP coincide con admin_ip en secrets"""
+    """Verifica si la IP está en la lista de IPs admin"""
     try:
-        admin_ip = st.secrets["general"]["admin_ip"]
-        return ip == admin_ip
+        admin_ips = st.secrets["general"]["admin_ips"]
+        return ip in admin_ips
     except:
         return False
+
 
 # --- INTERFAZ ---
 st.markdown("<h1 style='text-align:center; color:#00C6FF;'>⚙️ PANEL MAESTRO</h1>", unsafe_allow_html=True)
@@ -449,3 +450,4 @@ with tab3:
                     st.markdown("<p style='color:#aaa; text-align:center; margin-top:30px;'>👆 Haz clic en ℹ️<br>para ver detalles</p>", unsafe_allow_html=True)
     else:
         st.error("❌ Error al conectar con Hoja 2")
+
