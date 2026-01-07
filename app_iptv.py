@@ -52,25 +52,21 @@ def inject_styles():
             background-color: #0b5ed7; box-shadow: 0 4px 12px rgba(13, 110, 253, 0.4);
         }
 
-        /* --- ANIMACIÓN DE CARGA SUTIL --- */
-        @keyframes pulse-subtle {
-            0%, 100% { opacity: 0.6; }
-            50% { opacity: 1; }
+        /* --- ANIMACIÓN DE CARGA SPINNER --- */
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
         }
-        .loading-dot {
+        .loading-spinner {
             display: inline-block;
-            width: 8px;
-            height: 8px;
-            background-color: #00C6FF;
+            width: 16px;
+            height: 16px;
+            border: 3px solid rgba(0, 198, 255, 0.3);
+            border-top: 3px solid #00C6FF;
             border-radius: 50%;
-            margin: 0 3px;
-            animation: pulse-subtle 1.5s infinite;
-        }
-        .loading-dot:nth-child(2) {
-            animation-delay: 0.2s;
-        }
-        .loading-dot:nth-child(3) {
-            animation-delay: 0.4s;
+            animation: spin 1s linear infinite;
+            margin-right: 8px;
+            vertical-align: middle;
         }
 
         .ip-badge {
@@ -136,6 +132,9 @@ if 'ip_loading' not in st.session_state: st.session_state.ip_loading = True
 if 'data_live' not in st.session_state: st.session_state.data_live = None
 if 'data_vod' not in st.session_state: st.session_state.data_vod = None
 if 'data_series' not in st.session_state: st.session_state.data_series = None
+# Contador de items mostrados
+if 'vod_display_count' not in st.session_state: st.session_state.vod_display_count = 20
+if 'series_display_count' not in st.session_state: st.session_state.series_display_count = 20
 
 
 # 3. FUNCIONES
@@ -228,10 +227,8 @@ if not st.session_state.logged_in:
             else:
                 st.markdown("""
                     <div style="text-align:center; margin:15px 0;">
+                        <span class="loading-spinner"></span>
                         <span style="color:#00C6FF; font-size:13px;">Verificando IP</span>
-                        <span class="loading-dot"></span>
-                        <span class="loading-dot"></span>
-                        <span class="loading-dot"></span>
                     </div>
                 """, unsafe_allow_html=True)
 
@@ -314,6 +311,9 @@ if st.session_state.iptv_data is None:
                                         st.session_state.data_live = None
                                         st.session_state.data_vod = None
                                         st.session_state.data_series = None
+                                        # Resetear contadores
+                                        st.session_state.vod_display_count = 20
+                                        st.session_state.series_display_count = 20
                                         time.sleep(1)
                                         st.rerun()
                                     else:
@@ -438,9 +438,13 @@ if mode == 'live':
     st.markdown(html, unsafe_allow_html=True)
 
 else:
-    # --- GRID PARA VOD ---
-    limit = 60
-    view_items = filtered[:limit]
+    # --- GRID PARA VOD CON LOAD MORE ---
+    if mode == 'vod':
+        display_count = st.session_state.vod_display_count
+    else:
+        display_count = st.session_state.series_display_count
+    
+    view_items = filtered[:display_count]
     
     html = '<div class="vod-grid">'
     for item in view_items:
@@ -463,5 +467,13 @@ else:
     html += '</div>'
     st.markdown(html, unsafe_allow_html=True)
     
-    if len(filtered) > limit:
-        st.warning(f"⚠️ Mostrando los primeros {limit} resultados. Usa el buscador para ver más.")
+    # BOTÓN CARGAR MÁS
+    if len(filtered) > display_count:
+        col1, col2, col3 = st.columns([1, 2, 1])
+        with col2:
+            if st.button("📥 Cargar Más", use_container_width=True):
+                if mode == 'vod':
+                    st.session_state.vod_display_count += 20
+                else:
+                    st.session_state.series_display_count += 20
+                st.rerun()
