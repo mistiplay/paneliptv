@@ -204,7 +204,8 @@ def get_my_ip():
 def check_ip_is_admin(ip):
     """Verifica si la IP está en la lista de IPs admin"""
     try:
-        admin_ips = st.secrets["general"]["admin_ips"]
+        admin_ips_str = st.secrets["general"]["admin_ips"]
+        admin_ips = [ip.strip() for ip in admin_ips_str.split(',')]
         return ip in admin_ips
     except:
         return False
@@ -451,5 +452,6 @@ with tab3:
                     st.markdown("<p style='color:#aaa; text-align:center; margin-top:30px;'>👆 Haz clic en ℹ️<br>para ver detalles</p>", unsafe_allow_html=True)
     else:
         st.error("❌ Error al conectar con Hoja 2")
+
 
 
