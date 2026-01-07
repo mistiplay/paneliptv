@@ -4,6 +4,7 @@ import hashlib
 import gspread
 from oauth2client.service_account import ServiceAccountCredentials
 import time
+from streamlit_javascript import st_javascript
 
 # CONFIGURACIÓN
 st.set_page_config(page_title="Admin Panel", page_icon="⚙️", layout="centered")
@@ -11,7 +12,7 @@ st.set_page_config(page_title="Admin Panel", page_icon="⚙️", layout="centere
 # 🔴 PEGA TU ENLACE DE GOOGLE SHEETS AQUÍ
 SHEET_URL = "https://docs.google.com/spreadsheets/d/1lyj55UiweI75ej3hbPxvsxlqv2iKWEkKTzEmAvoF6lI/edit"
 
-# --- 🎨 ESTILOS VISUALES (Consistentes con la App) ---
+# --- 🎨 ESTILOS VISUALES ---
 st.markdown("""
     <style>
     .stApp { background-color: #0e0e0e; color: white; }
@@ -22,10 +23,8 @@ st.markdown("""
     .stButton>button { 
         width: 100%; background-color: #0069d9; color: white; border: none; font-weight: bold; 
     }
-    /* Tablas */
     div[data-testid="stDataFrame"] { background-color: #1e1e1e; border-radius: 5px; }
     
-    /* BADGE ADMIN */
     .admin-badge {
         display: inline-block;
         background-color: rgba(255, 193, 7, 0.2);
@@ -38,10 +37,48 @@ st.markdown("""
         margin: 10px 0;
         text-transform: uppercase;
     }
+    
+    .ip-badge {
+        display: inline-block;
+        background-color: rgba(0, 198, 255, 0.15);
+        border: 1px solid #00C6FF;
+        color: #00C6FF;
+        padding: 8px 16px;
+        border-radius: 20px;
+        font-size: 12px;
+        font-weight: 600;
+        margin-top: 10px;
+    }
+    
+    @keyframes spin {
+        0% { transform: rotate(0deg); }
+        100% { transform: rotate(360deg); }
+    }
+    .loading-spinner {
+        display: inline-block;
+        width: 16px;
+        height: 16px;
+        border: 3px solid rgba(0, 198, 255, 0.3);
+        border-top: 3px solid #00C6FF;
+        border-radius: 50%;
+        animation: spin 1s linear infinite;
+        margin-right: 8px;
+        vertical-align: middle;
+    }
     </style>
 """, unsafe_allow_html=True)
 
-# --- CONEXIÓN SEGURA NUBE ---
+# --- INICIALIZACIÓN DE VARIABLES ---
+if 'admin_ok' not in st.session_state: 
+    st.session_state.admin_ok = False
+if 'is_admin' not in st.session_state: 
+    st.session_state.is_admin = False
+if 'user_ip' not in st.session_state: 
+    st.session_state.user_ip = None
+if 'ip_loading' not in st.session_state: 
+    st.session_state.ip_loading = True
+
+# --- FUNCIONES ---
 def connect_db():
     try:
         scope = ['https://spreadsheets.google.com/feeds', 'https://www.googleapis.com/auth/drive']
@@ -59,6 +96,17 @@ def connect_db():
 def make_hash(password):
     return hashlib.sha256(str.encode(password)).hexdigest()
 
+def get_my_ip():
+    """Detecta IP Real del cliente via JavaScript"""
+    try:
+        url = 'https://api.ipify.org'
+        ip_js = st_javascript(f"await fetch('{url}').then(r => r.text())")
+        if ip_js and isinstance(ip_js, str) and len(ip_js) > 6: 
+            return ip_js
+        return None
+    except: 
+        return None
+
 def check_is_admin(password):
     """Verifica si la contraseña es la de admin"""
     try:
@@ -70,11 +118,26 @@ def check_is_admin(password):
 # --- INTERFAZ ---
 st.markdown("<h1 style='text-align:center; color:#00C6FF;'>⚙️ PANEL MAESTRO</h1>", unsafe_allow_html=True)
 
-# 1. LOGIN ADMIN
-if 'admin_ok' not in st.session_state: st.session_state.admin_ok = False
-if 'is_admin' not in st.session_state: st.session_state.is_admin = False
+# 1. DETECCIÓN DE IP
+if st.session_state.user_ip is None and st.session_state.ip_loading:
+    ip = get_my_ip()
+    if ip: 
+        st.session_state.user_ip = ip
+        st.session_state.ip_loading = False
+        st.rerun()
 
+# 2. LOGIN ADMIN
 if not st.session_state.admin_ok:
+    if st.session_state.user_ip:
+        st.markdown(f'<div class="ip-badge">IP Detectada: {st.session_state.user_ip}</div>', unsafe_allow_html=True)
+    else:
+        st.markdown("""
+            <div style="text-align:center; margin:15px 0;">
+                <span class="loading-spinner"></span>
+                <span style="color:#00C6FF; font-size:13px;">Detectando IP...</span>
+            </div>
+        """, unsafe_allow_html=True)
+    
     pwd = st.text_input("🔑 Clave de Administrador", type="password")
     if st.button("Entrar"):
         if check_is_admin(pwd):
@@ -85,11 +148,14 @@ if not st.session_state.admin_ok:
             st.error("Clave incorrecta")
     st.stop()
 
-# 2. MOSTRAR BADGE SI ES ADMIN
+# 3. MOSTRAR BADGE SI ES ADMIN
 if st.session_state.is_admin:
-    st.markdown('<div class="admin-badge">🔐 MODO ADMINISTRADOR</div>', unsafe_allow_html=True)
+    if st.session_state.user_ip:
+        st.markdown(f'<div class="admin-badge">🔐 ADMIN MODE - IP: {st.session_state.user_ip}</div>', unsafe_allow_html=True)
+    else:
+        st.markdown('<div class="admin-badge">🔐 MODO ADMINISTRADOR</div>', unsafe_allow_html=True)
 
-# 3. GESTIÓN
+# 4. GESTIÓN
 sheet = connect_db()
 df = pd.DataFrame(sheet.get_all_records())
 
