@@ -1,7 +1,9 @@
 import streamlit as st
 import pandas as pd
 import gspread
+import requests
 from oauth2client.service_account import ServiceAccountCredentials
+from datetime import datetime
 import time
 from streamlit_javascript import st_javascript
 
@@ -108,6 +110,37 @@ st.markdown("""
         font-family: monospace;
         word-break: break-all;
     }
+    
+    /* INFO PANEL */
+    .info-panel {
+        background-color: rgba(20, 20, 20, 0.95);
+        border: 2px solid #00C6FF;
+        border-radius: 10px;
+        padding: 20px;
+    }
+    .info-field {
+        margin-bottom: 15px;
+        padding-bottom: 15px;
+        border-bottom: 1px solid rgba(0, 198, 255, 0.2);
+    }
+    .info-field:last-child {
+        border-bottom: none;
+        margin-bottom: 0;
+        padding-bottom: 0;
+    }
+    .info-label {
+        color: #00C6FF;
+        font-size: 11px;
+        font-weight: 700;
+        text-transform: uppercase;
+        margin-bottom: 5px;
+        letter-spacing: 0.5px;
+    }
+    .info-value {
+        color: white;
+        font-size: 14px;
+        font-weight: 600;
+    }
     </style>
 """, unsafe_allow_html=True)
 
@@ -118,6 +151,8 @@ if 'user_ip' not in st.session_state:
     st.session_state.user_ip = None
 if 'ip_loading' not in st.session_state: 
     st.session_state.ip_loading = True
+if 'selected_connection_detail' not in st.session_state:
+    st.session_state.selected_connection_detail = None
 
 # --- FUNCIONES ---
 def connect_db():
@@ -284,39 +319,133 @@ with tab3:
         if not conexiones:
             st.warning("⚠️ No hay conexiones registradas aún.")
         else:
-            st.info(f"Total de conexiones: {len(conexiones)}")
+            # DEDUPLICAR por usuario_iptv (mantener primera aparición)
+            seen = set()
+            conexiones_unicas = []
+            for conn in conexiones:
+                usuario = conn.get('usuario_iptv', '')
+                if usuario and usuario not in seen:
+                    seen.add(usuario)
+                    conexiones_unicas.append(conn)
             
-            for idx, conn in enumerate(conexiones):
-                username_login = conn.get('username_login', 'N/A')
-                usuario_iptv = conn.get('usuario_iptv', 'N/A')
-                password_iptv = conn.get('password_iptv', 'N/A')
-                dominio_puerto = conn.get('dominio:puerto', 'N/A')
-                timestamp = conn.get('timestamp', 'N/A')
+            st.info(f"Total de conexiones únicas: {len(conexiones_unicas)}")
+            
+            col_list, col_info = st.columns([1.5, 1])
+            
+            with col_list:
+                st.markdown("**📊 Lista de Conexiones:**")
                 
-                html_conn = f"""
-                <div class="conexion-row">
-                    <div class="conexion-field">
-                        <span class="conexion-label">👤 Username Login:</span>
-                        <span class="conexion-value">{username_login}</span>
-                    </div>
-                    <div class="conexion-field">
-                        <span class="conexion-label">📱 Usuario IPTV:</span>
-                        <span class="conexion-value">{usuario_iptv}</span>
-                    </div>
-                    <div class="conexion-field">
-                        <span class="conexion-label">🔐 Password IPTV:</span>
-                        <span class="conexion-value">{password_iptv}</span>
-                    </div>
-                    <div class="conexion-field">
-                        <span class="conexion-label">🌐 Dominio:Puerto:</span>
-                        <span class="conexion-value">{dominio_puerto}</span>
-                    </div>
-                    <div class="conexion-field">
-                        <span class="conexion-label">📅 Timestamp:</span>
-                        <span class="conexion-value">{timestamp}</span>
-                    </div>
-                </div>
-                """
-                st.markdown(html_conn, unsafe_allow_html=True)
+                # Listar conexiones
+                for idx, conn in enumerate(conexiones_unicas):
+                    username_login = conn.get('username_login', 'N/A')
+                    usuario_iptv = conn.get('usuario_iptv', 'N/A')
+                    password_iptv = conn.get('password_iptv', 'N/A')
+                    dominio_puerto = conn.get('dominio:puerto', 'N/A')
+                    timestamp = conn.get('timestamp', 'N/A')
+                    
+                    # Layout: datos + botón info
+                    col_data, col_btn = st.columns([4, 1])
+                    
+                    with col_data:
+                        html_conn = f"""
+                        <div class="conexion-row">
+                            <div class="conexion-field">
+                                <span class="conexion-label">👤 Username Login:</span>
+                                <span class="conexion-value">{username_login}</span>
+                            </div>
+                            <div class="conexion-field">
+                                <span class="conexion-label">📱 Usuario IPTV:</span>
+                                <span class="conexion-value">{usuario_iptv}</span>
+                            </div>
+                            <div class="conexion-field">
+                                <span class="conexion-label">🔐 Password IPTV:</span>
+                                <span class="conexion-value">{password_iptv}</span>
+                            </div>
+                            <div class="conexion-field">
+                                <span class="conexion-label">🌐 Dominio:Puerto:</span>
+                                <span class="conexion-value">{dominio_puerto}</span>
+                            </div>
+                            <div class="conexion-field">
+                                <span class="conexion-label">📅 Timestamp:</span>
+                                <span class="conexion-value">{timestamp}</span>
+                            </div>
+                        </div>
+                        """
+                        st.markdown(html_conn, unsafe_allow_html=True)
+                    
+                    with col_btn:
+                        # Botón ℹ️ para ver detalles
+                        if st.button("ℹ️", key=f"info_btn_{idx}", help="Ver detalles"):
+                            st.session_state.selected_connection_detail = conn
+                            st.rerun()
+            
+            with col_info:
+                st.markdown("**ℹ️ Detalles:**")
+                
+                if st.session_state.selected_connection_detail:
+                    conn_sel = st.session_state.selected_connection_detail
+                    
+                    # Obtener datos de la API (info del usuario IPTV)
+                    usuario_iptv = conn_sel.get('usuario_iptv', '')
+                    password_iptv = conn_sel.get('password_iptv', '')
+                    dominio_puerto = conn_sel.get('dominio:puerto', '')
+                    
+                    # Construir URL de API
+                    try:
+                        api_url = f"http://{dominio_puerto}/player_api.php?username={usuario_iptv}&password={password_iptv}"
+                        
+                        headers = {"User-Agent": "Mozilla/5.0"}
+                        res = requests.get(api_url, headers=headers, timeout=10)
+                        
+                        if res.status_code == 200:
+                            data = res.json()
+                            user_info = data.get('user_info', {})
+                            
+                            # Extraer información
+                            status = user_info.get('status', 'Desconocido')
+                            exp_date = user_info.get('exp_date')
+                            active_cons = user_info.get('active_cons', '0')
+                            max_cons = user_info.get('max_connections', '?')
+                            
+                            # Formatear fecha
+                            if exp_date and str(exp_date) != 'null':
+                                try:
+                                    exp_formatted = datetime.fromtimestamp(int(exp_date)).strftime('%d/%m/%Y')
+                                except:
+                                    exp_formatted = "N/A"
+                            else:
+                                exp_formatted = "Indefinido"
+                            
+                            # Color estado
+                            color_estado = "#00FF00" if status == "Active" else "#FF6B6B"
+                            
+                            # Renderizar panel
+                            st.markdown(f"""
+                            <div class="info-panel">
+                                <div class="info-field">
+                                    <div class="info-label">📊 Estado</div>
+                                    <div class="info-value" style="color:{color_estado};">🟢 {status}</div>
+                                </div>
+                                <div class="info-field">
+                                    <div class="info-label">📆 Vencimiento</div>
+                                    <div class="info-value">{exp_formatted}</div>
+                                </div>
+                                <div class="info-field">
+                                    <div class="info-label">🔗 Conexiones</div>
+                                    <div class="info-value">{active_cons}/{max_cons}</div>
+                                </div>
+                            </div>
+                            """, unsafe_allow_html=True)
+                        else:
+                            st.warning("⚠️ No se pudo obtener info de la API")
+                    except Exception as e:
+                        st.warning(f"⚠️ Error conectando: {str(e)}")
+                    
+                    # Botón para cerrar
+                    if st.button("✕ Cerrar", use_container_width=True):
+                        st.session_state.selected_connection_detail = None
+                        st.rerun()
+                else:
+                    st.markdown("<p style='color:#aaa; text-align:center; margin-top:30px;'>👆 Haz clic en ℹ️<br>para ver detalles</p>", unsafe_allow_html=True)
     else:
         st.error("❌ Error al conectar con Hoja 2")
