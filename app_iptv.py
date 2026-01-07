@@ -133,8 +133,8 @@ if 'data_live' not in st.session_state: st.session_state.data_live = None
 if 'data_vod' not in st.session_state: st.session_state.data_vod = None
 if 'data_series' not in st.session_state: st.session_state.data_series = None
 # Contador de items mostrados
-if 'vod_display_count' not in st.session_state: st.session_state.vod_display_count = 60
-if 'series_display_count' not in st.session_state: st.session_state.series_display_count = 60
+if 'vod_display_count' not in st.session_state: st.session_state.vod_display_count = 20
+if 'series_display_count' not in st.session_state: st.session_state.series_display_count = 20
 
 
 # 3. FUNCIONES
@@ -477,4 +477,3 @@ else:
                 else:
                     st.session_state.series_display_count += 20
                 st.rerun()
-
