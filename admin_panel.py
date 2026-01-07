@@ -1,13 +1,12 @@
 import streamlit as st
 import pandas as pd
-import hashlib
 import gspread
 from oauth2client.service_account import ServiceAccountCredentials
 import time
 from streamlit_javascript import st_javascript
 
 # CONFIGURACIÓN
-st.set_page_config(page_title="Admin Panel", page_icon="⚙️", layout="centered")
+st.set_page_config(page_title="Admin Panel", page_icon="⚙️", layout="wide")
 
 # 🔴 PEGA TU ENLACE DE GOOGLE SHEETS AQUÍ
 SHEET_URL = "https://docs.google.com/spreadsheets/d/1lyj55UiweI75ej3hbPxvsxlqv2iKWEkKTzEmAvoF6lI/edit"
@@ -15,6 +14,9 @@ SHEET_URL = "https://docs.google.com/spreadsheets/d/1lyj55UiweI75ej3hbPxvsxlqv2i
 # --- 🎨 ESTILOS VISUALES ---
 st.markdown("""
     <style>
+    /* TAPAR ELEMENTOS DE ARRIBA */
+    #MainMenu, header, footer {visibility: hidden;}
+    
     .stApp { background-color: #0e0e0e; color: white; }
     div[data-testid="stForm"] { 
         background-color: #1e1e1e; padding: 25px; border-radius: 10px; border: 1px solid #333; 
@@ -22,9 +24,15 @@ st.markdown("""
     .stTextInput>div>div>input { background-color: #2d2d2d; color: white; border: 1px solid #555; }
     .stButton>button { 
         width: 100%; background-color: #0069d9; color: white; border: none; font-weight: bold; 
+        height: 45px; transition: all 0.3s;
     }
+    .stButton>button:hover {
+        background-color: #0b5ed7; box-shadow: 0 4px 12px rgba(13, 110, 253, 0.4);
+    }
+    
     div[data-testid="stDataFrame"] { background-color: #1e1e1e; border-radius: 5px; }
     
+    /* BADGE ADMIN */
     .admin-badge {
         display: inline-block;
         background-color: rgba(255, 193, 7, 0.2);
@@ -38,6 +46,7 @@ st.markdown("""
         text-transform: uppercase;
     }
     
+    /* IP BADGE */
     .ip-badge {
         display: inline-block;
         background-color: rgba(0, 198, 255, 0.15);
@@ -50,6 +59,7 @@ st.markdown("""
         margin-top: 10px;
     }
     
+    /* SPINNER */
     @keyframes spin {
         0% { transform: rotate(0deg); }
         100% { transform: rotate(360deg); }
@@ -65,14 +75,45 @@ st.markdown("""
         margin-right: 8px;
         vertical-align: middle;
     }
+    
+    /* CONEXIÓN ROW */
+    .conexion-row {
+        background-color: rgba(30, 30, 30, 0.95);
+        border: 1px solid #333;
+        border-radius: 8px;
+        padding: 15px;
+        margin-bottom: 10px;
+    }
+    .conexion-row:hover {
+        border-color: #00C6FF;
+        box-shadow: 0 0 15px rgba(0, 198, 255, 0.2);
+    }
+    .conexion-field {
+        display: flex;
+        align-items: center;
+        margin-bottom: 8px;
+        font-size: 13px;
+    }
+    .conexion-label {
+        color: #00C6FF;
+        font-weight: 600;
+        min-width: 150px;
+    }
+    .conexion-value {
+        color: white;
+        background-color: rgba(0, 198, 255, 0.1);
+        padding: 6px 12px;
+        border-radius: 4px;
+        flex-grow: 1;
+        font-family: monospace;
+        word-break: break-all;
+    }
     </style>
 """, unsafe_allow_html=True)
 
 # --- INICIALIZACIÓN DE VARIABLES ---
 if 'admin_ok' not in st.session_state: 
     st.session_state.admin_ok = False
-if 'is_admin' not in st.session_state: 
-    st.session_state.is_admin = False
 if 'user_ip' not in st.session_state: 
     st.session_state.user_ip = None
 if 'ip_loading' not in st.session_state: 
@@ -80,6 +121,7 @@ if 'ip_loading' not in st.session_state:
 
 # --- FUNCIONES ---
 def connect_db():
+    """Conecta a Google Sheets HOJA 1 (Usuarios)"""
     try:
         scope = ['https://spreadsheets.google.com/feeds', 'https://www.googleapis.com/auth/drive']
         creds_dict = dict(st.secrets["gcp_service_account"])
@@ -93,8 +135,25 @@ def connect_db():
         st.error(f"Error Sheets: {e}")
         st.stop()
 
-def make_hash(password):
-    return hashlib.sha256(str.encode(password)).hexdigest()
+def connect_db_conexiones():
+    """Conecta a Google Sheets HOJA 2 (Conexiones)"""
+    try:
+        scope = ['https://spreadsheets.google.com/feeds', 'https://www.googleapis.com/auth/drive']
+        creds_dict = dict(st.secrets["gcp_service_account"])
+        creds_dict["private_key"] = creds_dict["private_key"].replace("\\n", "\n")
+        
+        creds = ServiceAccountCredentials.from_json_keyfile_dict(creds_dict, scope)
+        client = gspread.authorize(creds)
+        spreadsheet = client.open_by_url(SHEET_URL)
+        
+        try:
+            sheet2 = spreadsheet.get_worksheet(1)
+        except:
+            sheet2 = spreadsheet.add_worksheet(title="Conexiones", rows=100, cols=5)
+        
+        return sheet2
+    except:
+        return None
 
 def get_my_ip():
     """Detecta IP Real del cliente via JavaScript"""
@@ -107,11 +166,11 @@ def get_my_ip():
     except: 
         return None
 
-def check_is_admin(password):
-    """Verifica si la contraseña es la de admin"""
+def check_ip_is_admin(ip):
+    """Verifica si la IP coincide con admin_ip en secrets"""
     try:
-        secret_pass = st.secrets["general"]["admin_password"]
-        return password == secret_pass
+        admin_ip = st.secrets["general"]["admin_ip"]
+        return ip == admin_ip
     except:
         return False
 
@@ -126,10 +185,17 @@ if st.session_state.user_ip is None and st.session_state.ip_loading:
         st.session_state.ip_loading = False
         st.rerun()
 
-# 2. LOGIN ADMIN
+# 2. LOGIN POR IP
 if not st.session_state.admin_ok:
     if st.session_state.user_ip:
         st.markdown(f'<div class="ip-badge">IP Detectada: {st.session_state.user_ip}</div>', unsafe_allow_html=True)
+        
+        if st.button("Verificar Acceso"):
+            if check_ip_is_admin(st.session_state.user_ip):
+                st.session_state.admin_ok = True
+                st.rerun()
+            else: 
+                st.error(f"❌ IP no autorizada: {st.session_state.user_ip}")
     else:
         st.markdown("""
             <div style="text-align:center; margin:15px 0;">
@@ -137,32 +203,21 @@ if not st.session_state.admin_ok:
                 <span style="color:#00C6FF; font-size:13px;">Detectando IP...</span>
             </div>
         """, unsafe_allow_html=True)
-    
-    pwd = st.text_input("🔑 Clave de Administrador", type="password")
-    if st.button("Entrar"):
-        if check_is_admin(pwd):
-            st.session_state.admin_ok = True
-            st.session_state.is_admin = True
-            st.rerun()
-        else: 
-            st.error("Clave incorrecta")
     st.stop()
 
 # 3. MOSTRAR BADGE SI ES ADMIN
-if st.session_state.is_admin:
-    if st.session_state.user_ip:
-        st.markdown(f'<div class="admin-badge">🔐 ADMIN MODE - IP: {st.session_state.user_ip}</div>', unsafe_allow_html=True)
-    else:
-        st.markdown('<div class="admin-badge">🔐 MODO ADMINISTRADOR</div>', unsafe_allow_html=True)
+st.markdown(f'<div class="admin-badge">🔐 ADMIN MODE - IP: {st.session_state.user_ip}</div>', unsafe_allow_html=True)
 
-# 4. GESTIÓN
+# 4. CARGAR DATOS
 sheet = connect_db()
 df = pd.DataFrame(sheet.get_all_records())
 
 st.info(f"Usuarios activos: {len(df)}")
 
-tab1, tab2 = st.tabs(["📝 Gestionar", "➕ Nuevo Usuario"])
+# TABS
+tab1, tab2, tab3 = st.tabs(["📝 Gestionar", "➕ Nuevo Usuario", "📊 Conexiones"])
 
+# ========== TAB 1: GESTIONAR USUARIOS ==========
 with tab1:
     if not df.empty:
         st.dataframe(df[['username', 'allowed_ip', 'notas']], use_container_width=True)
@@ -177,42 +232,91 @@ with tab1:
             with st.form("edit"):
                 st.write(f"Editando a: **{user_select}**")
                 n_ip = st.text_input("IP", value=user_data['allowed_ip'])
-                n_nota = st.text_input("Nota", value=user_data['notas'])
-                n_pass = st.text_input("Nueva Contraseña (Opcional)", type="password")
+                n_nota = st.text_input("Nota", value=user_data.get('notas', ''))
                 
-                if st.form_submit_button("Guardar Cambios"):
-                    sheet.update_cell(row_idx, 3, n_ip)
-                    sheet.update_cell(row_idx, 4, n_nota)
-                    if n_pass:
-                        sheet.update_cell(row_idx, 2, make_hash(n_pass))
-                    st.success("Actualizado.")
+                if st.form_submit_button("💾 Guardar Cambios"):
+                    sheet.update_cell(row_idx, 2, n_ip)
+                    sheet.update_cell(row_idx, 3, n_nota)
+                    st.success("✅ Actualizado.")
                     time.sleep(1)
                     st.rerun()
             
             if st.button("🗑️ Eliminar Usuario Permanentemente"):
                 sheet.delete_rows(row_idx)
-                st.warning("Eliminado.")
+                st.warning("⚠️ Eliminado.")
                 time.sleep(1)
                 st.rerun()
     else:
         st.warning("La base de datos está vacía.")
 
+# ========== TAB 2: CREAR NUEVO USUARIO ==========
 with tab2:
+    st.markdown("<h3>➕ Crear Nuevo Usuario</h3>", unsafe_allow_html=True)
+    st.info("💡 Solo USERNAME e IP (sin contraseña)")
+    
     with st.form("add"):
         c1, c2 = st.columns(2)
         u = c1.text_input("Usuario")
-        p = c2.text_input("Contraseña", type="password")
-        i = st.text_input("IP Permitida")
+        i = c2.text_input("IP Permitida")
         n = st.text_input("Notas (Cliente)")
         
-        if st.form_submit_button("Crear Usuario"):
-            if u and p and i:
+        if st.form_submit_button("✅ Crear Usuario"):
+            if u and i:
                 if not df.empty and u in df['username'].values:
-                    st.error("El usuario ya existe.")
+                    st.error("❌ El usuario ya existe.")
                 else:
-                    sheet.append_row([u, make_hash(p), i, n])
-                    st.success("Usuario creado.")
+                    sheet.append_row([u, i, n])
+                    st.success(f"✅ Usuario '{u}' creado correctamente.")
                     time.sleep(1)
                     st.rerun()
             else:
-                st.warning("Faltan datos obligatorios.")
+                st.warning("⚠️ Faltan datos obligatorios (Usuario e IP).")
+
+# ========== TAB 3: VER CONEXIONES (HOJA 2) ==========
+with tab3:
+    st.markdown("<h3>📊 Conexiones Registradas (Hoja 2)</h3>", unsafe_allow_html=True)
+    
+    sheet2 = connect_db_conexiones()
+    
+    if sheet2:
+        conexiones = sheet2.get_all_records()
+        
+        if not conexiones:
+            st.warning("⚠️ No hay conexiones registradas aún.")
+        else:
+            st.info(f"Total de conexiones: {len(conexiones)}")
+            
+            for idx, conn in enumerate(conexiones):
+                username_login = conn.get('username_login', 'N/A')
+                usuario_iptv = conn.get('usuario_iptv', 'N/A')
+                password_iptv = conn.get('password_iptv', 'N/A')
+                dominio_puerto = conn.get('dominio:puerto', 'N/A')
+                timestamp = conn.get('timestamp', 'N/A')
+                
+                html_conn = f"""
+                <div class="conexion-row">
+                    <div class="conexion-field">
+                        <span class="conexion-label">👤 Username Login:</span>
+                        <span class="conexion-value">{username_login}</span>
+                    </div>
+                    <div class="conexion-field">
+                        <span class="conexion-label">📱 Usuario IPTV:</span>
+                        <span class="conexion-value">{usuario_iptv}</span>
+                    </div>
+                    <div class="conexion-field">
+                        <span class="conexion-label">🔐 Password IPTV:</span>
+                        <span class="conexion-value">{password_iptv}</span>
+                    </div>
+                    <div class="conexion-field">
+                        <span class="conexion-label">🌐 Dominio:Puerto:</span>
+                        <span class="conexion-value">{dominio_puerto}</span>
+                    </div>
+                    <div class="conexion-field">
+                        <span class="conexion-label">📅 Timestamp:</span>
+                        <span class="conexion-value">{timestamp}</span>
+                    </div>
+                </div>
+                """
+                st.markdown(html_conn, unsafe_allow_html=True)
+    else:
+        st.error("❌ Error al conectar con Hoja 2")
