@@ -133,8 +133,8 @@ if 'data_live' not in st.session_state: st.session_state.data_live = None
 if 'data_vod' not in st.session_state: st.session_state.data_vod = None
 if 'data_series' not in st.session_state: st.session_state.data_series = None
 # Contador de items mostrados
-if 'vod_display_count' not in st.session_state: st.session_state.vod_display_count = 20
-if 'series_display_count' not in st.session_state: st.session_state.series_display_count = 20
+if 'vod_display_count' not in st.session_state: st.session_state.vod_display_count = 60
+if 'series_display_count' not in st.session_state: st.session_state.series_display_count = 60
 
 
 # 3. FUNCIONES
@@ -312,8 +312,8 @@ if st.session_state.iptv_data is None:
                                         st.session_state.data_vod = None
                                         st.session_state.data_series = None
                                         # Resetear contadores
-                                        st.session_state.vod_display_count = 20
-                                        st.session_state.series_display_count = 20
+                                        st.session_state.vod_display_count = 60
+                                        st.session_state.series_display_count = 60
                                         time.sleep(1)
                                         st.rerun()
                                     else:
@@ -473,7 +473,8 @@ else:
         with col2:
             if st.button("📥 Cargar Más", use_container_width=True):
                 if mode == 'vod':
-                    st.session_state.vod_display_count += 20
+                    st.session_state.vod_display_count += 60
                 else:
-                    st.session_state.series_display_count += 20
+                    st.session_state.series_display_count += 60
                 st.rerun()
+
